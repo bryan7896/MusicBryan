@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reproductor de Música</title>
+    <title>🎵 Reproductor de Música - Bryan</title>
     <style>
         * {
             margin: 0;
@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -25,30 +25,41 @@
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             padding: 40px;
-            max-width: 500px;
+            max-width: 550px;
             width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
 
         h1 {
-            color: #333;
+            color: #1a1a2e;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 10px;
             font-size: 24px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 25px;
         }
 
         .song-info {
             text-align: center;
             padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
             margin-bottom: 20px;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .song-title {
             font-size: 18px;
             font-weight: bold;
-            color: #333;
+            color: #1a1a2e;
             margin-bottom: 5px;
         }
 
@@ -60,23 +71,25 @@
         .controls {
             display: flex;
             justify-content: center;
-            gap: 20px;
-            margin: 30px 0;
+            align-items: center;
+            gap: 15px;
+            margin: 25px 0;
         }
 
         .controls button {
             background: none;
             border: none;
-            font-size: 30px;
+            font-size: 28px;
             cursor: pointer;
             transition: all 0.3s ease;
-            width: 50px;
-            height: 50px;
+            width: 55px;
+            height: 55px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             background: #f8f9fa;
+            color: #1a1a2e;
         }
 
         .controls button:hover {
@@ -88,9 +101,21 @@
             transform: scale(0.95);
         }
 
+        .controls .play-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 65px;
+            height: 65px;
+            font-size: 32px;
+        }
+
+        .controls .play-btn:hover {
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
         .progress-container {
             width: 100%;
-            margin: 20px 0;
+            margin: 15px 0;
         }
 
         .progress-bar {
@@ -119,26 +144,56 @@
         }
 
         .playlist {
-            margin-top: 30px;
+            margin-top: 25px;
             border-top: 1px solid #e9ecef;
             padding-top: 20px;
         }
 
+        .playlist-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
         .playlist-title {
-            color: #333;
+            color: #1a1a2e;
             font-size: 14px;
             font-weight: bold;
-            margin-bottom: 15px;
+        }
+
+        .playlist-count {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .playlist-items {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .playlist-items::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .playlist-items::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .playlist-items::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
         }
 
         .playlist-item {
             display: flex;
             align-items: center;
-            padding: 10px;
+            padding: 10px 12px;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
         .playlist-item:hover {
@@ -146,40 +201,47 @@
         }
 
         .playlist-item.active {
-            background: #e9ecef;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 3px solid #667eea;
         }
 
         .playlist-item .number {
             color: #999;
             font-size: 12px;
-            width: 25px;
+            width: 30px;
+            flex-shrink: 0;
         }
 
         .playlist-item .info {
             flex: 1;
+            min-width: 0;
         }
 
         .playlist-item .title {
             color: #333;
             font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .playlist-item .playing-indicator {
             color: #667eea;
-            font-size: 12px;
+            font-size: 14px;
             margin-left: 10px;
+            flex-shrink: 0;
         }
 
         .volume-control {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            margin: 15px 0;
+            gap: 12px;
+            margin: 15px 0 5px;
         }
 
         .volume-control input[type="range"] {
-            width: 100px;
+            width: 120px;
             height: 4px;
             -webkit-appearance: none;
             background: #e9ecef;
@@ -189,10 +251,10 @@
 
         .volume-control input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             cursor: pointer;
         }
 
@@ -209,11 +271,11 @@
 
         .add-song-section input {
             width: 100%;
-            padding: 10px;
+            padding: 10px 14px;
             border: 2px solid #e9ecef;
             border-radius: 8px;
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             transition: border-color 0.3s ease;
         }
 
@@ -230,12 +292,14 @@
             border: none;
             border-radius: 8px;
             font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .add-song-btn:hover {
             transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
         }
 
         .add-song-btn:active {
@@ -264,56 +328,40 @@
             border-color: #f5c6cb;
         }
 
-        .help-text {
-            background: #e7f3ff;
-            color: #004085;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 13px;
-            border: 1px solid #b8daff;
-            text-align: left;
-        }
-
-        .help-text strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .help-text code {
-            background: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            word-break: break-all;
+        @media (max-width: 480px) {
+            .player-container {
+                padding: 20px;
+            }
+            .controls button {
+                width: 45px;
+                height: 45px;
+                font-size: 22px;
+            }
+            .controls .play-btn {
+                width: 55px;
+                height: 55px;
+                font-size: 26px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="player-container">
         <h1>🎵 Mi Reproductor</h1>
-        
-        <div class="help-text">
-            <strong>📌 ¿Cómo agregar canciones de Google Drive?</strong>
-            1. Abre el archivo en Google Drive<br>
-            2. Haz clic en ⋮ → "Descargar"<br>
-            3. Copia el enlace de la barra de direcciones<br>
-            4. Pega el enlace en el campo de abajo<br>
-            <small>Ejemplo: <code>https://drive.google.com/uc?export=download&id=1LzBb35FemOztRY_kJTLujOaM4HGX-pTL</code></small>
-        </div>
+        <p class="subtitle">📚 Colección de música</p>
         
         <div id="statusMessage" class="status">
             ✅ Listo para reproducir
         </div>
         
         <div class="song-info">
-            <div class="song-title" id="currentSongTitle">Cargando...</div>
-            <div class="song-artist" id="currentSongArtist">Lista de reproducción</div>
+            <div class="song-title" id="currentSongTitle">🎵 Selecciona una canción</div>
+            <div class="song-artist" id="currentSongArtist">📋 Lista de reproducción</div>
         </div>
 
         <div class="controls">
             <button id="prevBtn" title="Anterior">⏮</button>
-            <button id="playBtn" title="Reproducir/Pausar">▶</button>
+            <button id="playBtn" class="play-btn" title="Reproducir/Pausar">▶</button>
             <button id="nextBtn" title="Siguiente">⏭</button>
         </div>
 
@@ -329,38 +377,45 @@
 
         <div class="volume-control">
             <span class="volume-icon">🔊</span>
-            <input type="range" id="volumeControl" min="0" max="1" step="0.1" value="0.8">
+            <input type="range" id="volumeControl" min="0" max="1" step="0.05" value="0.8">
         </div>
 
         <div class="playlist">
-            <div class="playlist-title">📋 Lista de reproducción</div>
-            <div id="playlistItems"></div>
+            <div class="playlist-header">
+                <div class="playlist-title">📋 Lista de reproducción</div>
+                <div class="playlist-count" id="playlistCount">0 canciones</div>
+            </div>
+            <div class="playlist-items" id="playlistItems"></div>
         </div>
 
         <div class="add-song-section">
-            <input type="text" id="songUrlInput" placeholder="Pega el enlace directo de Google Drive aquí..." />
-            <input type="text" id="songTitleInput" placeholder="Nombre de la canción (opcional)" />
+            <input type="text" id="songUrlInput" placeholder="🔗 Pega el enlace MP3 aquí..." />
+            <input type="text" id="songTitleInput" placeholder="📝 Nombre de la canción (opcional)" />
             <button class="add-song-btn" id="addSongBtn">➕ Agregar canción</button>
         </div>
     </div>
 
     <script>
         // ============================================
-        // LISTA DE CANCIONES - USANDO ENLACES DIRECTOS
+        // 🎵 LISTA DE CANCIONES (ENLACES RAW DE GITHUB)
         // ============================================
         const playlist = [
-            {
-                title: "EL QUE NO DUERME v1",
-                url: "https://drive.google.com/uc?export=download&id=1LzBb35FemOztRY_kJTLujOaM4HGX-pTL"
-            },
-            {
-                title: "Canción 2",
-                url: "https://drive.google.com/uc?export=download&id=1kZIAkLGI3-1fT02aHl8Ue0zR6L9-fLqC"
-            }
+            { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
+            { title: "EL QUE NO DUERME v2", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
+            { title: "El desorden perfecto", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20desorden%20perfecto.mp3" },
+            { title: "El reloj se para", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20reloj%20se%20para.mp3" },
+            { title: "El tamaño de tu mano", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20tama%C3%B1o%20de%20tu%20mano.mp3" },
+            { title: "Mi lugar en el mundo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20en%20el%20mundo.mp3" },
+            { title: "Mi princesa", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20princesa.mp3" },
+            { title: "Si tu voluntad duele", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Si%20tu%20voluntad%20duele.mp3" },
+            { title: "También sus espinas", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tambi%C3%A9n%20sus%20espinas.mp3" },
+            { title: "Te amo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Te%20amo.mp3" },
+            { title: "Todavía me sorprende", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Todav%C3%ADa%20me%20sorprende.mp3" },
+            { title: "Tu nombre es mi respiración", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20nombre%20es%20mi%20respiraci%C3%B3n.mp3" }
         ];
 
         // ============================================
-        // ESTADO DEL REPRODUCTOR
+        // ⚙️ ESTADO DEL REPRODUCTOR
         // ============================================
         let currentSongIndex = 0;
         let isPlaying = false;
@@ -378,17 +433,22 @@
         const currentSongTitle = document.getElementById('currentSongTitle');
         const currentSongArtist = document.getElementById('currentSongArtist');
         const playlistItems = document.getElementById('playlistItems');
+        const playlistCount = document.getElementById('playlistCount');
         const songUrlInput = document.getElementById('songUrlInput');
         const songTitleInput = document.getElementById('songTitleInput');
         const addSongBtn = document.getElementById('addSongBtn');
         const statusMessage = document.getElementById('statusMessage');
+
+        // ============================================
+        // 🛠️ FUNCIONES
+        // ============================================
 
         function showStatus(message, isSuccess = true) {
             statusMessage.textContent = message;
             statusMessage.className = `status show ${isSuccess ? '' : 'error'}`;
             setTimeout(() => {
                 statusMessage.className = 'status';
-            }, 5000);
+            }, 4000);
         }
 
         function loadSong(index) {
@@ -398,44 +458,28 @@
                 return;
             }
 
-            // Limpiar y preparar la URL
-            let url = song.url.trim();
-            
-            // Si es enlace de Google Drive, convertirlo al formato correcto
-            if (url.includes('drive.google.com')) {
-                // Intentar extraer el ID del archivo
-                const idMatch = url.match(/[?&]id=([^&]+)/) || url.match(/\/d\/([^\/]+)/);
-                if (idMatch) {
-                    url = `https://drive.google.com/uc?export=download&id=${idMatch[1]}`;
-                } else {
-                    showStatus('❌ No se pudo extraer el ID de Google Drive', false);
-                    return;
-                }
-            }
-
-            audio.src = url;
+            audio.src = song.url;
             audio.load();
             currentSongTitle.textContent = song.title || `Canción ${index + 1}`;
             currentSongArtist.textContent = `${index + 1} de ${playlist.length}`;
             updatePlaylistUI();
             
-            // Si estaba reproduciendo, continuar
             if (isPlaying) {
                 audio.play().catch(e => {
                     console.error('Error al reproducir:', e);
-                    showStatus('❌ Error al reproducir. Verifica el enlace.', false);
+                    showStatus('❌ Error al reproducir la canción', false);
                     isPlaying = false;
                     playBtn.textContent = '▶';
                 });
             }
             
-            showStatus(`🎵 Reproduciendo: ${song.title || `Canción ${index + 1}`}`);
+            showStatus(`🎵 Reproduciendo: ${song.title}`);
         }
 
         function togglePlay() {
             if (audio.src === '' || audio.src === 'about:blank') {
                 loadSong(currentSongIndex);
-                setTimeout(() => togglePlay(), 200);
+                setTimeout(() => togglePlay(), 300);
                 return;
             }
 
@@ -475,7 +519,7 @@
                 const item = document.createElement('div');
                 item.className = `playlist-item ${index === currentSongIndex ? 'active' : ''}`;
                 item.innerHTML = `
-                    <span class="number">${index + 1}</span>
+                    <span class="number">${String(index + 1).padStart(2, '0')}</span>
                     <div class="info">
                         <div class="title">${song.title || `Canción ${index + 1}`}</div>
                     </div>
@@ -492,6 +536,7 @@
                 });
                 playlistItems.appendChild(item);
             });
+            playlistCount.textContent = `${playlist.length} canciones`;
         }
 
         function formatTime(seconds) {
@@ -502,7 +547,7 @@
         }
 
         function addSong() {
-            let url = songUrlInput.value.trim();
+            const url = songUrlInput.value.trim();
             const title = songTitleInput.value.trim() || `Canción ${playlist.length + 1}`;
             
             if (!url) {
@@ -518,17 +563,6 @@
                 return;
             }
 
-            // Si es Google Drive, intentar convertir
-            if (url.includes('drive.google.com')) {
-                const idMatch = url.match(/[?&]id=([^&]+)/) || url.match(/\/d\/([^\/]+)/);
-                if (idMatch) {
-                    url = `https://drive.google.com/uc?export=download&id=${idMatch[1]}`;
-                } else {
-                    showStatus('❌ No se pudo procesar el enlace de Google Drive', false);
-                    return;
-                }
-            }
-
             playlist.push({ title, url });
             songUrlInput.value = '';
             songTitleInput.value = '';
@@ -542,12 +576,23 @@
         }
 
         // ============================================
-        // EVENT LISTENERS
+        // 🎯 EVENT LISTENERS
         // ============================================
 
         playBtn.addEventListener('click', togglePlay);
         prevBtn.addEventListener('click', prevSong);
         nextBtn.addEventListener('click', nextSong);
+
+        // Teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === ' ' || e.key === 'Space') {
+                e.preventDefault();
+                togglePlay();
+            }
+            if (e.key === 'ArrowRight') nextSong();
+            if (e.key === 'ArrowLeft') prevSong();
+        });
 
         audio.addEventListener('timeupdate', () => {
             if (!isDragging && audio.duration) {
@@ -590,17 +635,25 @@
             nextSong();
         });
 
-        // Cargar primera canción
+        audio.addEventListener('error', (e) => {
+            console.error('Error en el audio:', e);
+            showStatus('❌ Error al cargar la canción. Verifica el enlace.', false);
+        });
+
+        // ============================================
+        // 🚀 INICIALIZAR
+        // ============================================
         loadSong(0);
+        updatePlaylistUI();
 
         addSongBtn.addEventListener('click', addSong);
         songUrlInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') addSong();
         });
 
-        updatePlaylistUI();
         console.log('🎵 Reproductor iniciado correctamente');
-        console.log(`📋 ${playlist.length} canciones cargadas`);
+        console.log(`📋 ${playlist.length} canciones cargadas desde GitHub`);
+        console.log('🎯 Presiona ESPACIO para reproducir/pausar');
     </script>
 </body>
 </html>
