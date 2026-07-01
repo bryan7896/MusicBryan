@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <title>🎵 Reproductor Offline + Importación</title>
+    <title>🎵 Reproductor Offline</title>
     
-    <!-- PWA - MANIFEST -->
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +13,6 @@
     <meta name="apple-mobile-web-app-title" content="Mi Música">
     <meta name="theme-color" content="#0f0c29">
     
-    <!-- Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -26,9 +24,6 @@
     </script>
 
     <style>
-        /* ============================================
-           RESET Y ESTILOS BASE
-           ============================================ */
         * {
             margin: 0;
             padding: 0;
@@ -49,7 +44,6 @@
             --text-secondary: #B0B0B0;
             --card-bg: rgba(255, 255, 255, 0.06);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             --radius: 24px;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
@@ -85,15 +79,10 @@
             z-index: 9999;
             transform: translateY(-100%);
             transition: transform 0.4s ease;
-            letter-spacing: 0.5px;
         }
 
         .offline-badge.show {
             transform: translateY(0);
-        }
-
-        .offline-badge.online {
-            background: #51cf66;
         }
 
         .player-container {
@@ -190,11 +179,6 @@
             transform: scale(0.85);
         }
 
-        .header-btn.active {
-            color: var(--accent);
-            border-color: var(--accent);
-        }
-
         .album-wrapper {
             display: flex;
             justify-content: center;
@@ -254,26 +238,6 @@
         @keyframes spinRing {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
-        }
-
-        .album-art::before {
-            content: '';
-            position: absolute;
-            inset: -20px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(108,60,225,0.1) 0%, transparent 70%);
-            opacity: 0;
-            transition: opacity 0.5s ease;
-        }
-
-        .album-art.spinning::before {
-            opacity: 1;
-            animation: pulseRing 2s ease-in-out infinite;
-        }
-
-        @keyframes pulseRing {
-            0%, 100% { transform: scale(1); opacity: 0.3; }
-            50% { transform: scale(1.05); opacity: 0.6; }
         }
 
         .wave-container {
@@ -346,16 +310,6 @@
 
         .favorite-btn:active {
             transform: scale(0.7);
-        }
-
-        .favorite-btn.liked {
-            animation: likePop 0.4s ease;
-        }
-
-        @keyframes likePop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.5); }
-            100% { transform: scale(1); }
         }
 
         .controls {
@@ -482,10 +436,6 @@
             transform: scale(0.8);
         }
 
-        .extras-bar .group .icon-btn.active {
-            color: var(--accent);
-        }
-
         .extras-bar .group .icon-btn.active-shuffle {
             color: var(--secondary);
         }
@@ -506,7 +456,6 @@
             border-radius: 50%;
             background: var(--accent);
             cursor: pointer;
-            box-shadow: 0 0 20px rgba(255, 217, 61, 0.15);
         }
 
         .action-buttons {
@@ -555,10 +504,6 @@
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
-        }
-
-        .action-btn.primary:active {
-            transform: scale(0.95);
         }
 
         .modal-overlay {
@@ -638,10 +583,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .modal-header .close-btn:active {
-            transform: scale(0.85);
         }
 
         .modal-playlist {
@@ -853,23 +794,6 @@
         #fileInput {
             display: none;
         }
-
-        /* Loader */
-        .loader {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
-            border-top-color: var(--accent);
-            animation: spin 0.8s ease-in-out infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body>
@@ -985,18 +909,19 @@
         ];
 
         // ============================================
-        // 💾 GESTOR DE BASE DE DATOS (IndexedDB)
+        // 💾 GESTOR DE BASE DE DATOS (IndexedDB) - SIMPLIFICADO
         // ============================================
         class MusicDatabase {
             constructor() {
                 this.dbName = 'MusicPlayerDB';
                 this.storeName = 'songs';
                 this.db = null;
+                this.isReady = false;
             }
 
             async init() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.dbName, 2);
+                    const request = indexedDB.open(this.dbName, 1);
                     
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
@@ -1005,14 +930,15 @@
                                 keyPath: 'id', 
                                 autoIncrement: true 
                             });
+                            // Solo crear índices básicos
                             store.createIndex('title', 'title', { unique: false });
-                            store.createIndex('fileName', 'fileName', { unique: false });
-                            store.createIndex('isPrecarged', 'isPrecarged', { unique: false });
                         }
+                        console.log('📦 Base de datos creada/actualizada');
                     };
 
                     request.onsuccess = (event) => {
                         this.db = event.target.result;
+                        this.isReady = true;
                         console.log('✅ Base de datos abierta');
                         resolve();
                     };
@@ -1030,13 +956,8 @@
                     const store = transaction.objectStore(this.storeName);
                     const request = store.add(songData);
                     
-                    request.onsuccess = () => {
-                        resolve(request.result);
-                    };
-                    
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
                 });
             }
 
@@ -1046,13 +967,8 @@
                     const store = transaction.objectStore(this.storeName);
                     const request = store.getAll();
                     
-                    request.onsuccess = () => {
-                        resolve(request.result);
-                    };
-                    
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
                 });
             }
 
@@ -1062,13 +978,8 @@
                     const store = transaction.objectStore(this.storeName);
                     const request = store.delete(id);
                     
-                    request.onsuccess = () => {
-                        resolve();
-                    };
-                    
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
                 });
             }
 
@@ -1078,13 +989,8 @@
                     const store = transaction.objectStore(this.storeName);
                     const request = store.put({ ...data, id });
                     
-                    request.onsuccess = () => {
-                        resolve();
-                    };
-                    
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
                 });
             }
 
@@ -1092,9 +998,7 @@
                 const songs = await this.getAllSongs();
                 let total = 0;
                 songs.forEach(song => {
-                    if (song.blob) {
-                        total += song.blob.size;
-                    }
+                    if (song.blob) total += song.blob.size;
                 });
                 return total;
             }
@@ -1105,31 +1009,14 @@
                     const store = transaction.objectStore(this.storeName);
                     const request = store.clear();
                     
-                    request.onsuccess = () => {
-                        resolve();
-                    };
-                    
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
                 });
             }
 
-            async getPrecargedCount() {
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction([this.storeName], 'readonly');
-                    const store = transaction.objectStore(this.storeName);
-                    const index = store.index('isPrecarged');
-                    const request = index.count(true);
-                    
-                    request.onsuccess = () => {
-                        resolve(request.result);
-                    };
-                    
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
-                });
+            async getSongCount() {
+                const songs = await this.getAllSongs();
+                return songs.length;
             }
         }
 
@@ -1236,7 +1123,7 @@
             }
 
             // ============================================
-            // 🚀 INICIALIZAR APP
+            // 🚀 INICIALIZAR APP - VERSIÓN SIMPLIFICADA
             // ============================================
             async initApp() {
                 if (this.isLoading) return;
@@ -1245,20 +1132,23 @@
                 try {
                     await this.db.init();
                     
-                    // Verificar si ya hay canciones precargadas
-                    const count = await this.db.getPrecargedCount();
+                    // Verificar cuántas canciones hay
+                    const count = await this.db.getSongCount();
+                    console.log(`📊 Canciones en DB: ${count}`);
                     
                     if (count === 0) {
                         this.dom.currentTitle.textContent = '📂 Cargando biblioteca...';
-                        this.showToast('📂 Cargando canciones...');
+                        this.showToast('📂 Cargando canciones precargadas...');
                         await this.loadPrecargedSongs();
+                    } else {
+                        console.log('✅ Usando canciones existentes en la DB');
                     }
                     
                     await this.loadPlaylist();
                     this.isLoaded = true;
                     
                 } catch (error) {
-                    console.error('Error inicializando:', error);
+                    console.error('❌ Error inicializando:', error);
                     this.showToast('❌ Error al cargar la biblioteca', false);
                 } finally {
                     this.isLoading = false;
@@ -1271,6 +1161,7 @@
             async loadPrecargedSongs() {
                 let loaded = 0;
                 let failed = 0;
+                let total = PRECARGED_SONGS.length;
 
                 for (const song of PRECARGED_SONGS) {
                     try {
@@ -1287,7 +1178,6 @@
                             title: song.title,
                             blob: blob,
                             liked: false,
-                            isPrecarged: true,
                             dateAdded: new Date().toISOString()
                         };
                         
@@ -1300,7 +1190,8 @@
                     }
                 }
                 
-                this.showToast(`✅ ${loaded} canciones cargadas${failed > 0 ? ` (${failed} fallaron)` : ''}`);
+                const msg = `✅ ${loaded} de ${total} canciones cargadas${failed > 0 ? ` (${failed} fallaron)` : ''}`;
+                this.showToast(msg);
                 console.log(`📊 Resumen: ${loaded} cargadas, ${failed} fallaron`);
             }
 
@@ -1327,7 +1218,6 @@
                             title: file.name.replace('.mp3', '').replace(/_/g, ' '),
                             blob: blob,
                             liked: false,
-                            isPrecarged: false,
                             dateAdded: new Date().toISOString()
                         };
 
@@ -1755,7 +1645,6 @@
                 const isOnline = navigator.onLine;
                 if (!isOnline) {
                     this.dom.offlineBadge.classList.add('show');
-                    this.dom.offlineBadge.classList.remove('online');
                     this.dom.offlineBadge.textContent = '📡 Sin conexión - Modo offline';
                 } else {
                     this.dom.offlineBadge.classList.remove('show');
@@ -1790,11 +1679,10 @@
         // ============================================
         // 🚀 INICIALIZAR
         // ============================================
-        const player = new MusicPlayer();
-        console.log('🎵 Reproductor con importación local iniciado');
-        console.log('📱 Puedes importar MP3 desde tu dispositivo');
-        console.log('💾 Los archivos se guardan en IndexedDB');
+        console.log('🎵 Iniciando reproductor...');
         console.log('📋 Canciones precargadas:', PRECARGED_SONGS.length);
+        
+        const player = new MusicPlayer();
     </script>
 
 </body>
