@@ -24,6 +24,7 @@
     </script>
 
     <style>
+        /* ===== RESET Y ESTILOS BASE ===== */
         * {
             margin: 0;
             padding: 0;
@@ -794,6 +795,19 @@
         #fileInput {
             display: none;
         }
+
+        /* Loader */
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 0.8s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -894,22 +908,22 @@
         // 📋 LISTA DE CANCIONES PRECARGADAS
         // ============================================
         const PRECARGED_SONGS = [
-            { title: "EL QUE NO DUERME v1", url: "Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
-            { title: "EL QUE NO DUERME v2", url: "Music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
-            { title: "El desorden perfecto", url: "Music/El%20desorden%20perfecto.mp3" },
-            { title: "El reloj se para", url: "Music/El%20reloj%20se%20para.mp3" },
-            { title: "El tamaño de tu mano", url: "Music/El%20tama%C3%B1o%20de%20tu%20mano.mp3" },
-            { title: "Mi lugar en el mundo", url: "Music/Mi%20lugar%20en%20el%20mundo.mp3" },
-            { title: "Mi princesa", url: "Music/Mi%20princesa.mp3" },
-            { title: "Si tu voluntad duele", url: "Music/Si%20tu%20voluntad%20duele.mp3" },
-            { title: "También sus espinas", url: "Music/Tambi%C3%A9n%20sus%20espinas.mp3" },
-            { title: "Te amo", url: "Music/Te%20amo.mp3" },
-            { title: "Todavía me sorprende", url: "Music/Todav%C3%ADa%20me%20sorprende.mp3" },
-            { title: "Tu nombre es mi respiración", url: "Music/Tu%20nombre%20es%20mi%20respiraci%C3%B3n.mp3" }
+            { title: "EL QUE NO DUERME v1", url: "music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
+            { title: "EL QUE NO DUERME v2", url: "music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
+            { title: "El desorden perfecto", url: "music/El%20desorden%20perfecto.mp3" },
+            { title: "El reloj se para", url: "music/El%20reloj%20se%20para.mp3" },
+            { title: "El tamaño de tu mano", url: "music/El%20tama%C3%B1o%20de%20tu%20mano.mp3" },
+            { title: "Mi lugar en el mundo", url: "music/Mi%20lugar%20en%20el%20mundo.mp3" },
+            { title: "Mi princesa", url: "music/Mi%20princesa.mp3" },
+            { title: "Si tu voluntad duele", url: "music/Si%20tu%20voluntad%20duele.mp3" },
+            { title: "También sus espinas", url: "music/Tambi%C3%A9n%20sus%20espinas.mp3" },
+            { title: "Te amo", url: "music/Te%20amo.mp3" },
+            { title: "Todavía me sorprende", url: "music/Todav%C3%ADa%20me%20sorprende.mp3" },
+            { title: "Tu nombre es mi respiración", url: "music/Tu%20nombre%20es%20mi%20respiraci%C3%B3n.mp3" }
         ];
 
         // ============================================
-        // 💾 GESTOR DE BASE DE DATOS (IndexedDB) - SIMPLIFICADO
+        // 💾 GESTOR DE BASE DE DATOS (IndexedDB)
         // ============================================
         class MusicDatabase {
             constructor() {
@@ -921,25 +935,31 @@
 
             async init() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.dbName, 1);
+                    // Usamos versión 3 para forzar recreación
+                    const request = indexedDB.open(this.dbName, 3);
                     
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
-                        if (!db.objectStoreNames.contains(this.storeName)) {
-                            const store = db.createObjectStore(this.storeName, { 
-                                keyPath: 'id', 
-                                autoIncrement: true 
-                            });
-                            // Solo crear índices básicos
-                            store.createIndex('title', 'title', { unique: false });
+                        
+                        // Si existe el store, lo eliminamos para recrearlo limpio
+                        if (db.objectStoreNames.contains(this.storeName)) {
+                            db.deleteObjectStore(this.storeName);
+                            console.log('🗑️ Store eliminado para recrear');
                         }
-                        console.log('📦 Base de datos creada/actualizada');
+                        
+                        // Crear el store con la estructura correcta
+                        const store = db.createObjectStore(this.storeName, { 
+                            keyPath: 'id', 
+                            autoIncrement: true 
+                        });
+                        store.createIndex('title', 'title', { unique: false });
+                        console.log('📦 Store creado correctamente');
                     };
 
                     request.onsuccess = (event) => {
                         this.db = event.target.result;
                         this.isReady = true;
-                        console.log('✅ Base de datos abierta');
+                        console.log('✅ Base de datos abierta (versión 3)');
                         resolve();
                     };
 
@@ -967,7 +987,11 @@
                     const store = transaction.objectStore(this.storeName);
                     const request = store.getAll();
                     
-                    request.onsuccess = () => resolve(request.result);
+                    request.onsuccess = () => {
+                        const songs = request.result || [];
+                        console.log(`📊 ${songs.length} canciones obtenidas de la DB`);
+                        resolve(songs);
+                    };
                     request.onerror = () => reject(request.error);
                 });
             }
@@ -1123,7 +1147,7 @@
             }
 
             // ============================================
-            // 🚀 INICIALIZAR APP - VERSIÓN SIMPLIFICADA
+            // 🚀 INICIALIZAR APP
             // ============================================
             async initApp() {
                 if (this.isLoading) return;
@@ -1142,6 +1166,7 @@
                         await this.loadPrecargedSongs();
                     } else {
                         console.log('✅ Usando canciones existentes en la DB');
+                        this.showToast(`📋 ${count} canciones cargadas`);
                     }
                     
                     await this.loadPlaylist();
@@ -1254,6 +1279,7 @@
             async loadPlaylist() {
                 try {
                     this.playlist = await this.db.getAllSongs();
+                    console.log(`🎵 Playlist cargada: ${this.playlist.length} canciones`);
                     
                     this.updatePlaylistUI();
                     this.updateStorageInfo();
@@ -1277,7 +1303,10 @@
             // ============================================
             async loadSong(index) {
                 const song = this.playlist[index];
-                if (!song) return;
+                if (!song) {
+                    console.warn(`⚠️ No hay canción en índice ${index}`);
+                    return;
+                }
 
                 try {
                     const url = URL.createObjectURL(song.blob);
@@ -1563,6 +1592,8 @@
                     this.dom.playlistBadge.textContent = '0';
                     return;
                 }
+
+                console.log(`🎵 Mostrando ${this.playlist.length} canciones en la lista`);
 
                 this.playlist.forEach((song, i) => {
                     const div = document.createElement('div');
