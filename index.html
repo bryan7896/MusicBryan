@@ -465,6 +465,7 @@
             justify-content: center;
             flex-shrink: 0;
             padding: 4px 0;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -482,6 +483,7 @@
             justify-content: center;
             gap: 8px;
             flex: 1;
+            min-width: 100px;
             max-width: 200px;
         }
 
@@ -505,6 +507,31 @@
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
+        }
+
+        .action-btn.update-btn {
+            background: linear-gradient(135deg, #00b894, #00a381);
+            color: white;
+            border: none;
+        }
+
+        .action-btn.update-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .action-btn.update-btn .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .modal-overlay {
@@ -753,7 +780,7 @@
             .song-title { font-size: 16px; }
             .modal { padding: 16px 16px calc(16px + var(--safe-bottom)); max-height: 65vh; }
             .volume-slider { width: 55px; }
-            .action-btn { font-size: 12px; padding: 8px 14px; }
+            .action-btn { font-size: 12px; padding: 8px 14px; min-width: 80px; }
         }
 
         @media (max-width: 360px) {
@@ -780,7 +807,7 @@
             .wave:nth-child(5) { height: 6px; }
             .song-title { font-size: 15px; }
             .header-title h1 { font-size: 15px; }
-            .action-btn { padding: 6px 12px; font-size: 11px; }
+            .action-btn { padding: 6px 12px; font-size: 11px; min-width: 70px; }
         }
 
         @keyframes fadeInUp {
@@ -894,6 +921,10 @@
         <div class="action-buttons">
             <button class="action-btn primary" id="importBtn">
                 📂 Importar MP3
+            </button>
+            <button class="action-btn update-btn" id="updateBtn">
+                🔄 Actualizar
+                <span class="badge" id="updateBadge">0</span>
             </button>
             <button class="action-btn" id="openPlaylistBtn">
                 📋 Biblioteca
@@ -1040,6 +1071,10 @@
                 const songs = await this.getAllSongs();
                 return songs.length;
             }
+
+            async deleteAll() {
+                return this.clearAll();
+            }
         }
 
         // ============================================
@@ -1058,6 +1093,7 @@
                 this.shuffleHistory = [];
                 this.isLoaded = false;
                 this.isLoading = false;
+                this.isUpdating = false;
                 
                 this.audio = new Audio();
                 this.initDOM();
@@ -1094,7 +1130,9 @@
                     importBtn: document.getElementById('importBtn'),
                     fileInput: document.getElementById('fileInput'),
                     toast: document.getElementById('toast'),
-                    offlineBadge: document.getElementById('offlineBadge')
+                    offlineBadge: document.getElementById('offlineBadge'),
+                    updateBtn: document.getElementById('updateBtn'),
+                    updateBadge: document.getElementById('updateBadge')
                 };
             }
 
@@ -1138,6 +1176,9 @@
                 });
                 this.dom.fileInput.addEventListener('change', (e) => this.importFiles(e));
                 
+                // 👇 NUEVO: Botón de actualizar
+                this.dom.updateBtn.addEventListener('click', () => this.updateLibrary());
+                
                 window.addEventListener('online', () => this.updateOfflineStatus());
                 window.addEventListener('offline', () => this.updateOfflineStatus());
                 
@@ -1169,11 +1210,124 @@
                     await this.loadPlaylist();
                     this.isLoaded = true;
                     
+                    // Actualizar badge de actualización
+                    this.checkForUpdates();
+                    
                 } catch (error) {
                     console.error('❌ Error inicializando:', error);
                     this.showToast('❌ Error al cargar la biblioteca', false);
                 } finally {
                     this.isLoading = false;
+                }
+            }
+
+            // ============================================
+            // 🔄 ACTUALIZAR BIBLIOTECA (NUEVO)
+            // ============================================
+            async updateLibrary() {
+                if (this.isUpdating) return;
+                if (!navigator.onLine) {
+                    this.showToast('📡 Sin conexión, no se puede actualizar', false);
+                    return;
+                }
+
+                this.isUpdating = true;
+                this.dom.updateBtn.disabled = true;
+                this.dom.updateBtn.innerHTML = '<span class="spinner"></span> Actualizando...';
+
+                try {
+                    // Obtener lista actual de la DB
+                    const currentSongs = await this.db.getAllSongs();
+                    const currentTitles = new Set(currentSongs.map(s => s.title));
+                    
+                    let newSongs = 0;
+                    let alreadyExist = 0;
+                    let failed = 0;
+
+                    // Verificar cada canción de la lista precargada
+                    for (const song of PRECARGED_SONGS) {
+                        if (currentTitles.has(song.title)) {
+                            alreadyExist++;
+                            continue;
+                        }
+
+                        try {
+                            console.log(`⬇️ Descargando nueva: ${song.title}...`);
+                            const response = await fetch(song.url);
+                            if (!response.ok) {
+                                console.warn(`⚠️ No se pudo descargar: ${song.title}`);
+                                failed++;
+                                continue;
+                            }
+                            
+                            const blob = await response.blob();
+                            const songData = {
+                                fileName: song.title + '.mp3',
+                                title: song.title,
+                                blob: blob,
+                                liked: false,
+                                dateAdded: new Date().toISOString()
+                            };
+                            
+                            await this.db.addSong(songData);
+                            newSongs++;
+                            console.log(`✅ Nueva canción agregada: ${song.title}`);
+                        } catch (error) {
+                            console.warn(`⚠️ Error con ${song.title}:`, error);
+                            failed++;
+                        }
+                    }
+
+                    // Recargar playlist
+                    await this.loadPlaylist();
+                    
+                    // Mostrar resultado
+                    let msg = `✅ Actualización completa`;
+                    if (newSongs > 0) msg += `: ${newSongs} canciones nuevas`;
+                    if (alreadyExist > 0) msg += `, ${alreadyExist} ya existían`;
+                    if (failed > 0) msg += `, ${failed} fallaron`;
+                    this.showToast(msg);
+                    
+                    // Actualizar badge
+                    this.dom.updateBadge.textContent = '0';
+
+                } catch (error) {
+                    console.error('❌ Error actualizando:', error);
+                    this.showToast('❌ Error al actualizar la biblioteca', false);
+                } finally {
+                    this.isUpdating = false;
+                    this.dom.updateBtn.disabled = false;
+                    this.dom.updateBtn.innerHTML = '🔄 Actualizar <span class="badge" id="updateBadge">0</span>';
+                    // Reasignar referencia al badge
+                    this.dom.updateBadge = document.getElementById('updateBadge');
+                }
+            }
+
+            // ============================================
+            // 🔍 VERIFICAR ACTUALIZACIONES
+            // ============================================
+            async checkForUpdates() {
+                try {
+                    const currentSongs = await this.db.getAllSongs();
+                    const currentTitles = new Set(currentSongs.map(s => s.title));
+                    
+                    let missing = 0;
+                    for (const song of PRECARGED_SONGS) {
+                        if (!currentTitles.has(song.title)) {
+                            missing++;
+                        }
+                    }
+                    
+                    if (missing > 0) {
+                        this.dom.updateBadge.textContent = missing;
+                        this.dom.updateBadge.style.display = 'flex';
+                        this.showToast(`🔄 ${missing} canciones nuevas disponibles`);
+                    } else {
+                        this.dom.updateBadge.textContent = '0';
+                        this.dom.updateBadge.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error verificando actualizaciones:', error);
                 }
             }
 
@@ -1290,6 +1444,10 @@
                         this.dom.currentArtist.textContent = 'Toca "Importar MP3" para comenzar';
                         this.dom.albumImage.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect width="400" height="400" fill="%236C3CE1"/%3E%3Ctext x="200" y="200" text-anchor="middle" dy=".3em" fill="white" font-size="100" font-family="sans-serif"%3E🎵%3C/text%3E%3C/svg%3E';
                     }
+                    
+                    // Verificar actualizaciones después de cargar
+                    this.checkForUpdates();
+                    
                 } catch (error) {
                     console.error('Error cargando playlist:', error);
                     this.showToast('❌ Error al cargar la biblioteca', false);
