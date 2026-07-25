@@ -2,13 +2,14 @@
 // SERVICE WORKER - CACHE DE RECURSOS
 // ============================================
 
-const CACHE_NAME = 'music-player-v1';
+const CACHE_NAME = 'music-player-v3'; // v2: nuevo diseño visual + modos de reproducción
 const OFFLINE_URL = 'index.html';
 
 // Recursos a cachear (siempre disponibles offline)
 const STATIC_ASSETS = [
     'index.html',
     'manifest.json',
+    'songs.js',
     'icon-192.png',
     'icon-512.png'
 ];
@@ -17,20 +18,19 @@ const STATIC_ASSETS = [
 // INSTALACIÓN - Cachear recursos estáticos
 // ============================================
 self.addEventListener('install', (event) => {
-    console.log('✅ Service Worker: Instalando...');
+    console.log('Service Worker: Instalando...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('📦 Cacheando recursos estáticos...');
+                console.log('Cacheando recursos estáticos...');
                 return cache.addAll(STATIC_ASSETS);
             })
             .then(() => {
-                console.log('✅ Recursos cacheados correctamente');
-                // Forzar activación inmediata
+                console.log('Recursos cacheados correctamente');
                 return self.skipWaiting();
             })
             .catch((error) => {
-                console.error('❌ Error cacheando recursos:', error);
+                console.error('Error cacheando recursos:', error);
             })
     );
 });
@@ -39,19 +39,19 @@ self.addEventListener('install', (event) => {
 // ACTIVACIÓN - Limpiar cachés viejos
 // ============================================
 self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker: Activando...');
+    console.log('Service Worker: Activando...');
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
-                        console.log('🗑️ Eliminando caché vieja:', cacheName);
+                        console.log('Eliminando caché vieja:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
         }).then(() => {
-            console.log('✅ Service Worker activado y controlando la página');
+            console.log('Service Worker activado y controlando la página');
             return self.clients.claim();
         })
     );
@@ -69,7 +69,7 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(request)
                 .catch(() => {
-                    console.log('📡 Offline: Sirviendo index.html desde caché');
+                    console.log('Offline: Sirviendo index.html desde caché');
                     return caches.match(OFFLINE_URL);
                 })
         );
@@ -82,13 +82,12 @@ self.addEventListener('fetch', (event) => {
             caches.match(request)
                 .then((cachedResponse) => {
                     if (cachedResponse) {
-                        console.log('💾 MP3 desde caché:', url.pathname);
+                        console.log('MP3 desde caché:', url.pathname);
                         return cachedResponse;
                     }
-                    console.log('🌐 MP3 desde red:', url.pathname);
+                    console.log('MP3 desde red:', url.pathname);
                     return fetch(request)
                         .then((response) => {
-                            // Cachear la respuesta para futuras visitas
                             const clonedResponse = response.clone();
                             caches.open(CACHE_NAME)
                                 .then((cache) => {
@@ -98,8 +97,7 @@ self.addEventListener('fetch', (event) => {
                             return response;
                         })
                         .catch(() => {
-                            console.warn('⚠️ No se pudo cargar el MP3:', url.pathname);
-                            // Retornar un silencio en lugar de error
+                            console.warn('No se pudo cargar el MP3:', url.pathname);
                             return new Response('', {
                                 status: 200,
                                 statusText: 'OK',
@@ -130,7 +128,6 @@ self.addEventListener('fetch', (event) => {
                             return response;
                         })
                         .catch(() => {
-                            // Retornar imagen de respaldo
                             return new Response('', {
                                 status: 404,
                                 statusText: 'Not Found'
@@ -145,7 +142,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         fetch(request)
             .then((response) => {
-                // Cachear la respuesta para futuras visitas
                 const clonedResponse = response.clone();
                 caches.open(CACHE_NAME)
                     .then((cache) => {
@@ -155,14 +151,13 @@ self.addEventListener('fetch', (event) => {
                 return response;
             })
             .catch(() => {
-                console.log('📡 Offline: Buscando en caché:', url.pathname);
+                console.log('Offline: Buscando en caché:', url.pathname);
                 return caches.match(request)
                     .then((cachedResponse) => {
                         if (cachedResponse) {
                             return cachedResponse;
                         }
-                        console.warn('⚠️ No encontrado en caché:', url.pathname);
-                        // Retornar respuesta por defecto
+                        console.warn('No encontrado en caché:', url.pathname);
                         return new Response('Recurso no disponible offline', {
                             status: 404,
                             statusText: 'Not Found'
@@ -172,4 +167,4 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-console.log('🎵 Service Worker cargado correctamente');
+console.log('Service Worker cargado correctamente');

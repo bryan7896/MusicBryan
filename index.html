@@ -3,1877 +3,1244 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <title>🎵 Reproductor Offline</title>
-    
+    <title>Mi Música — Reproductor Offline</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mi Música">
-    <meta name="theme-color" content="#0f0c29">
-    
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('✅ Service Worker registrado'))
-                    .catch(err => console.error('❌ Error SW:', err));
-            });
-        }
-    </script>
-
+    <meta name="theme-color" content="#0b0918">
     <style>
-        /* ===== RESET Y ESTILOS BASE ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
+        /* RESET Y BASE */
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         :root {
-            --primary: #6C3CE1;
-            --primary-dark: #5A2FC7;
-            --primary-light: #8B6FE8;
-            --secondary: #FF6B6B;
-            --accent: #FFD93D;
-            --bg-start: #0f0c29;
-            --bg-mid: #302b63;
-            --bg-end: #24243e;
+            --primary: #7C4DFF;
+            --primary-dark: #5B2FD1;
+            --primary-light: #A78BFA;
+            --secondary: #FF6B8B;
+            --accent: #FFC857;
+            --accent-2: #4FD1C5;
+            --bg-start: #0b0918;
+            --bg-mid: #1a1440;
+            --bg-end: #140f2e;
             --text-primary: #FFFFFF;
-            --text-secondary: #B0B0B0;
-            --card-bg: rgba(255, 255, 255, 0.06);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --radius: 24px;
+            --text-secondary: #9C97B8;
+            --card-bg: rgba(255,255,255,0.055);
+            --card-bg-strong: rgba(255,255,255,0.09);
+            --glass-border: rgba(255,255,255,0.09);
+            --radius: 26px;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        html, body {
-            height: 100%;
-            height: 100dvh;
-            overflow: hidden;
-        }
-
+        html, body { height:100%; height:100dvh; overflow:hidden; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(145deg, var(--bg-start), var(--bg-mid), var(--bg-end));
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: var(--text-primary);
-            overflow: hidden;
-            position: relative;
+            background: radial-gradient(circle at 15% 8%, rgba(124,77,255,0.25), transparent 45%),
+                        radial-gradient(circle at 85% 92%, rgba(79,209,197,0.14), transparent 40%),
+                        linear-gradient(160deg, var(--bg-start), var(--bg-mid) 55%, var(--bg-end));
+            display:flex; justify-content:center; align-items:center; color:var(--text-primary);
+            overflow:hidden; position:relative;
         }
+        svg.icon { width:1em; height:1em; display:block; flex-shrink:0; }
+        .icon-filled { fill:currentColor; }
 
+        /* OFFLINE BADGE */
         .offline-badge {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #ff6b6b;
-            color: white;
-            text-align: center;
-            padding: 4px 12px;
-            font-size: 11px;
-            font-weight: 600;
-            z-index: 9999;
-            transform: translateY(-100%);
-            transition: transform 0.4s ease;
+            position:fixed; top:0; left:0; right:0;
+            background:linear-gradient(90deg,#FF6B8B,#FF9166); color:white; text-align:center;
+            padding:6px 12px; font-size:11px; font-weight:600; letter-spacing:0.2px;
+            z-index:9999; display:flex; align-items:center; justify-content:center; gap:6px;
+            transform:translateY(-100%); transition:transform 0.45s var(--ease-spring);
         }
+        .offline-badge.show { transform:translateY(0); }
+        .offline-badge svg { width:13px; height:13px; }
 
-        .offline-badge.show {
-            transform: translateY(0);
-        }
-
+        /* CONTENEDOR PRINCIPAL */
         .player-container {
-            width: 100%;
-            height: 100%;
-            height: 100dvh;
-            max-width: 480px;
-            padding: 20px 20px calc(20px + var(--safe-bottom));
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            position: relative;
-            overflow: hidden;
+            width:100%; height:100%; height:100dvh; max-width:480px;
+            padding:20px 20px calc(20px + var(--safe-bottom));
+            display:flex; flex-direction:column; justify-content:space-between;
+            background:var(--card-bg); backdrop-filter:blur(24px);
+            -webkit-backdrop-filter:blur(24px);
+            border:1px solid var(--glass-border);
+            position:relative; overflow:hidden;
+            animation:fadeInUp 0.7s var(--ease-smooth);
         }
-
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);} }
         .player-container::before {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary), var(--accent), var(--primary));
-            background-size: 400% 400%;
-            border-radius: calc(var(--radius) + 2px);
-            z-index: -1;
-            opacity: 0.2;
-            animation: borderGlow 8s ease-in-out infinite;
+            content:''; position:absolute; top:-2px; left:-2px; right:-2px; bottom:-2px;
+            background:linear-gradient(45deg,var(--primary),var(--accent-2),var(--accent),var(--secondary),var(--primary));
+            background-size:400% 400%; border-radius:calc(var(--radius)+2px); z-index:-1;
+            opacity:0.22; animation:borderGlow 10s ease-in-out infinite;
         }
+        @keyframes borderGlow { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
 
-        @keyframes borderGlow {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+        /* HEADER */
+        .header { display:flex; justify-content:space-between; align-items:center; padding:4px 0 12px; flex-shrink:0; }
+        .header-title { display:flex; align-items:center; gap:10px; }
+        .header-title .logo {
+            width:30px; height:30px; border-radius:10px;
+            background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+            display:flex; align-items:center; justify-content:center;
+            box-shadow:0 4px 14px rgba(124,77,255,0.4); flex-shrink:0;
         }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0 12px;
-            flex-shrink: 0;
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
+        .header-title .logo svg { width:16px; height:16px; color:white; }
         .header-title h1 {
-            font-size: 18px;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--primary-light), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size:18px; font-weight:800; letter-spacing:-0.2px;
+            background:linear-gradient(135deg,#fff,var(--primary-light));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
         }
-
-        .header-title .icon {
-            font-size: 20px;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 6px;
-        }
-
+        .header-actions { display:flex; gap:6px; }
         .header-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--text-secondary);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(10px);
+            background:var(--card-bg); border:1px solid var(--glass-border);
+            color:var(--text-secondary); width:36px; height:36px; border-radius:50%;
+            font-size:15px; cursor:pointer; transition:all 0.25s var(--ease-smooth);
+            display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);
         }
+        .header-btn.active { color:var(--secondary); border-color:rgba(255,107,139,0.4); background:rgba(255,107,139,0.08); }
+        .header-btn:active { transform:scale(0.85); }
 
-        .header-btn:active {
-            transform: scale(0.85);
-        }
-
+        /* PORTADA CIRCULAR CON ALTO RELIEVE - AHORA MÁS PEQUEÑA */
         .album-wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-shrink: 0;
-            padding: 4px 0;
+            display:flex; justify-content:center; align-items:center;
+            flex-shrink:0; padding:2px 0; position:relative;
         }
-
         .album-art {
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            overflow: hidden;
-            position: relative;
-            background: linear-gradient(135deg, var(--primary-dark), var(--bg-mid));
-            box-shadow: 0 12px 40px rgba(108, 60, 225, 0.25);
-            flex-shrink: 0;
-            border: 3px solid var(--glass-border);
+            width:140px; height:140px; /* Más pequeña */
+            border-radius:50%;
+            overflow:hidden; position:relative;
+            background:radial-gradient(circle at 30% 30%, #b388ff, #4a2aa8);
+            box-shadow: 0 14px 44px rgba(91,47,209,0.5),
+                        0 0 0 2px rgba(255,255,255,0.1),
+                        inset 0 -4px 12px rgba(0,0,0,0.5),
+                        inset 0 4px 12px rgba(255,255,255,0.3);
+            flex-shrink:0;
+            transition:transform 0.5s var(--ease-smooth);
+            transform: perspective(800px) rotateX(4deg) rotateY(-2deg) scale(1.02);
         }
-
+        .album-art:not(.spinning) { animation:idleBob 4s ease-in-out infinite; }
+        @keyframes idleBob {
+            0%,100% { transform: perspective(800px) rotateX(4deg) rotateY(-2deg) scale(1.02) translateY(0); }
+            50% { transform: perspective(800px) rotateX(4deg) rotateY(-2deg) scale(1.04) translateY(-4px); }
+        }
         .album-art img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
+            width:100%; height:100%; object-fit:cover; display:block;
+            border-radius:50%;
         }
-
-        .album-art.spinning img {
-            animation: spin 10s linear infinite;
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+        .album-art.spinning img { animation:spin 9s linear infinite; }
+        @keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
 
         .album-art::after {
-            content: '';
-            position: absolute;
-            inset: -6px;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            background: linear-gradient(135deg, var(--primary), var(--accent), var(--secondary)) border-box;
-            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: 0.4;
-            transition: opacity 0.5s ease;
+            content:''; position:absolute; inset:-4px;
+            border-radius:50%;
+            border:3px solid rgba(255,255,255,0.15);
+            box-shadow: inset 0 8px 20px rgba(0,0,0,0.6),
+                        0 8px 20px rgba(124,77,255,0.3);
+            pointer-events:none;
+        }
+        .album-art .disc-pin {
+            position:absolute; top:50%; left:50%;
+            width:14px; height:14px; /* Más pequeño */
+            border-radius:50%;
+            background:radial-gradient(circle at 30% 30%, #ddd, #555);
+            border:2px solid rgba(255,255,255,0.7);
+            transform:translate(-50%,-50%);
+            z-index:2; box-shadow:0 2px 8px rgba(0,0,0,0.5);
         }
 
-        .album-art.spinning::after {
-            opacity: 0.8;
-            animation: spinRing 3s linear infinite;
-        }
-
-        @keyframes spinRing {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
+        /* WAVES */
         .wave-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 3px;
-            height: 28px;
-            padding: 4px 0;
-            flex-shrink: 0;
+            display:flex; justify-content:center; align-items:center;
+            gap:3px; height:22px; padding:2px 0; flex-shrink:0;
         }
-
         .wave {
-            width: 4px;
-            height: 6px;
-            background: var(--primary-light);
-            border-radius: 2px;
-            animation: wave 0.8s ease-in-out infinite alternate;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            width:3px; height:5px;
+            background:linear-gradient(180deg,var(--accent),var(--primary));
+            border-radius:2px;
+            animation:wave 0.85s ease-in-out infinite alternate;
+            opacity:0; transition:opacity 0.3s ease;
         }
+        .wave.active { opacity:0.85; }
+        .wave:nth-child(1){ animation-delay:0s; height:6px; }
+        .wave:nth-child(2){ animation-delay:0.12s; height:12px; }
+        .wave:nth-child(3){ animation-delay:0.24s; height:18px; }
+        .wave:nth-child(4){ animation-delay:0.12s; height:12px; }
+        .wave:nth-child(5){ animation-delay:0s; height:6px; }
+        @keyframes wave { 0%{transform:scaleY(0.35);} 100%{transform:scaleY(1);} }
 
-        .wave.active {
-            opacity: 0.7;
+        /* SONG INFO */
+        .song-info { text-align:center; padding:2px 0 2px; flex-shrink:0; animation:songFade 0.4s var(--ease-smooth); }
+        @keyframes songFade { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+        .song-title { font-size:17px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 8px; }
+        .song-artist { font-size:12px; color:var(--text-secondary); margin-top:2px; display:flex; align-items:center; justify-content:center; gap:5px; flex-wrap:wrap; }
+        .song-artist .tag {
+            display:inline-flex; align-items:center; gap:3px; padding:1px 8px;
+            border-radius:20px; background:var(--card-bg-strong);
+            font-size:10px; font-weight:600;
         }
-
-        .wave:nth-child(1) { animation-delay: 0s; height: 10px; }
-        .wave:nth-child(2) { animation-delay: 0.1s; height: 16px; }
-        .wave:nth-child(3) { animation-delay: 0.2s; height: 22px; }
-        .wave:nth-child(4) { animation-delay: 0.3s; height: 16px; }
-        .wave:nth-child(5) { animation-delay: 0.4s; height: 10px; }
-
-        @keyframes wave {
-            0% { transform: scaleY(0.3); }
-            100% { transform: scaleY(1); }
-        }
-
-        .song-info {
-            text-align: center;
-            padding: 2px 0 4px;
-            flex-shrink: 0;
-        }
-
-        .song-title {
-            font-size: 18px;
-            font-weight: 700;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            padding: 0 8px;
-        }
-
-        .song-artist {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
-
+        .song-artist .tag.christian { color:var(--accent); }
+        .song-artist .tag.own { color:var(--accent-2); }
         .favorite-btn {
-            background: none;
-            border: none;
-            font-size: 26px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: block;
-            margin: 0 auto;
-            padding: 4px;
-            flex-shrink: 0;
+            background:none; border:none; font-size:20px; cursor:pointer;
+            transition:all 0.3s var(--ease-spring);
+            display:flex; align-items:center; justify-content:center;
+            margin:0 auto; padding:2px; flex-shrink:0;
+            color:var(--text-secondary);
         }
+        .favorite-btn.liked { color:var(--secondary); }
+        .favorite-btn:active { transform:scale(0.7); }
 
-        .favorite-btn:active {
-            transform: scale(0.7);
+        /* MODE SWITCH */
+        .mode-switch {
+            position:relative; display:flex; background:var(--card-bg);
+            border:1px solid var(--glass-border); border-radius:18px;
+            padding:4px; gap:2px; flex-shrink:0; margin:2px 0;
         }
+        .mode-indicator {
+            position:absolute; top:4px; bottom:4px; left:4px;
+            width:calc(33.333% - 3.66px);
+            background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+            border-radius:14px; box-shadow:0 4px 16px rgba(124,77,255,0.45);
+            transition:transform 0.4s var(--ease-spring); z-index:1;
+        }
+        .mode-btn {
+            position:relative; z-index:2; flex:1; background:none; border:none;
+            color:var(--text-secondary); display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:3px;
+            padding:7px 4px; border-radius:14px; font-size:10px;
+            font-weight:700; letter-spacing:0.1px; cursor:pointer;
+            transition:color 0.3s ease;
+        }
+        .mode-btn svg { width:16px; height:16px; transition:transform 0.3s var(--ease-spring); }
+        .mode-btn.active { color:#fff; }
+        .mode-btn.active svg { transform:scale(1.1); }
+        .mode-btn:active svg { transform:scale(0.85); }
 
+        /* CONTROLS */
         .controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 16px;
-            padding: 4px 0;
-            flex-shrink: 0;
+            display:flex; justify-content:center; align-items:center;
+            gap:14px; padding:2px 0; flex-shrink:0;
         }
-
         .controls button {
-            background: var(--card-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--text-primary);
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            font-size: 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(10px);
+            background:var(--card-bg); border:1px solid var(--glass-border);
+            color:var(--text-primary); width:44px; height:44px; border-radius:50%;
+            font-size:16px; cursor:pointer; transition:all 0.25s var(--ease-smooth);
+            display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);
         }
-
-        .controls button:active {
-            transform: scale(0.85);
-        }
-
+        .controls button:active { transform:scale(0.85); }
         .controls .play-btn {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            border: none;
-            font-size: 26px;
-            box-shadow: 0 8px 25px rgba(108, 60, 225, 0.35);
+            width:56px; height:56px;
+            background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+            border:none; font-size:20px;
+            box-shadow:0 10px 28px rgba(124,77,255,0.4);
         }
+        .controls .play-btn svg { margin-left:2px; }
+        .controls .play-btn.is-playing svg { margin-left:0; }
+        .controls .play-btn:active { transform:scale(0.9); box-shadow:0 5px 16px rgba(124,77,255,0.25); }
 
-        .controls .play-btn:active {
-            transform: scale(0.9);
-            box-shadow: 0 4px 15px rgba(108, 60, 225, 0.2);
-        }
-
-        .progress-container {
-            width: 100%;
-            padding: 4px 0;
-            flex-shrink: 0;
-        }
-
+        /* PROGRESS */
+        .progress-container { width:100%; padding:2px 0; flex-shrink:0; }
         .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: rgba(255,255,255,0.12);
-            border-radius: 2px;
-            cursor: pointer;
-            position: relative;
-            touch-action: none;
+            width:100%; height:4px; background:rgba(255,255,255,0.1);
+            border-radius:3px; cursor:pointer; position:relative; touch-action:none;
         }
-
         .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--accent));
-            border-radius: 2px;
-            width: 0%;
-            transition: width 0.05s linear;
-            position: relative;
+            height:100%; background:linear-gradient(90deg,var(--primary),var(--accent));
+            border-radius:3px; width:0%; transition:width 0.05s linear; position:relative;
         }
-
         .progress-fill::after {
-            content: '';
-            position: absolute;
-            right: -5px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 10px;
-            height: 10px;
-            background: var(--accent);
-            border-radius: 50%;
-            box-shadow: 0 0 20px rgba(255, 217, 61, 0.3);
-            opacity: 0;
-            transition: opacity 0.2s ease;
+            content:''; position:absolute; right:-6px; top:50%;
+            transform:translateY(-50%);
+            width:12px; height:12px; background:var(--accent); border-radius:50%;
+            box-shadow:0 0 0 4px rgba(255,200,87,0.18);
+            opacity:0; transition:opacity 0.2s ease;
         }
+        .progress-bar:active .progress-fill::after { opacity:1; }
+        .time-info { display:flex; justify-content:space-between; color:var(--text-secondary); font-size:9px; margin-top:2px; font-variant-numeric:tabular-nums; }
 
-        .progress-bar:active .progress-fill::after {
-            opacity: 1;
-        }
-
-        .time-info {
-            display: flex;
-            justify-content: space-between;
-            color: var(--text-secondary);
-            font-size: 10px;
-            margin-top: 3px;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .extras-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 2px;
-            flex-shrink: 0;
-        }
-
-        .extras-bar .group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
+        /* EXTRAS BAR */
+        .extras-bar { display:flex; justify-content:space-between; align-items:center; padding:2px 2px; flex-shrink:0; }
+        .extras-bar .group { display:flex; align-items:center; gap:8px; }
         .extras-bar .group .icon-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            padding: 4px;
+            background:none; border:none; color:var(--text-secondary);
+            font-size:15px; cursor:pointer; transition:all 0.3s var(--ease-smooth);
+            padding:3px; display:flex; align-items:center;
         }
-
-        .extras-bar .group .icon-btn:active {
-            transform: scale(0.8);
-        }
-
-        .extras-bar .group .icon-btn.active-shuffle {
-            color: var(--secondary);
-        }
-
+        .extras-bar .group .icon-btn:active { transform:scale(0.8); }
+        .extras-bar .group .icon-btn.is-active { color:var(--secondary); }
         .volume-slider {
-            width: 70px;
-            height: 3px;
-            -webkit-appearance: none;
-            background: rgba(255,255,255,0.15);
-            border-radius: 2px;
-            outline: none;
+            width:60px; height:3px; -webkit-appearance:none; appearance:none;
+            background:rgba(255,255,255,0.15); border-radius:2px; outline:none;
         }
-
         .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--accent);
-            cursor: pointer;
+            -webkit-appearance:none; width:10px; height:10px; border-radius:50%;
+            background:var(--accent); cursor:pointer;
+            box-shadow:0 0 0 4px rgba(255,200,87,0.15);
         }
 
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-shrink: 0;
-            padding: 4px 0;
-            flex-wrap: wrap;
-        }
-
+        /* ACTION BUTTONS */
+        .action-buttons { display:flex; gap:8px; justify-content:center; flex-shrink:0; padding:2px 0; flex-wrap:wrap; }
         .action-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--text-secondary);
-            padding: 10px 18px;
-            border-radius: 30px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            flex: 1;
-            min-width: 100px;
-            max-width: 200px;
+            background:var(--card-bg); border:1px solid var(--glass-border);
+            color:var(--text-secondary); padding:8px 12px; border-radius:30px;
+            font-size:11.5px; font-weight:600; cursor:pointer;
+            transition:all 0.25s var(--ease-smooth); backdrop-filter:blur(10px);
+            display:flex; align-items:center; justify-content:center; gap:6px;
+            flex:1; min-width:80px; max-width:180px;
         }
-
-        .action-btn:active {
-            transform: scale(0.95);
-        }
-
+        .action-btn:active { transform:scale(0.95); }
+        .action-btn svg { width:14px; height:14px; }
         .action-btn .badge {
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background:var(--primary); color:white; border-radius:50%;
+            width:17px; height:17px; font-size:9px; font-weight:700;
+            display:flex; align-items:center; justify-content:center;
         }
-
         .action-btn.primary {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            border: none;
+            background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+            color:white; border:none;
         }
-
         .action-btn.update-btn {
-            background: linear-gradient(135deg, #00b894, #00a381);
-            color: white;
-            border: none;
+            background:linear-gradient(135deg,var(--accent-2),#2ba69a);
+            color:white; border:none;
         }
-
-        .action-btn.update-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .action-btn.update-btn:disabled { opacity:0.55; cursor:not-allowed; }
+        .spinner {
+            display:inline-block; width:12px; height:12px;
+            border:2px solid rgba(255,255,255,0.3); border-radius:50%;
+            border-top-color:#fff; animation:rotate 0.8s linear infinite;
         }
+        @keyframes rotate { to{transform:rotate(360deg);} }
 
-        .action-btn.update-btn .spinner {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
+        /* MODAL */
         .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            z-index: 1000;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            padding: 20px;
+            position:fixed; inset:0;
+            background:rgba(6,5,16,0.65); backdrop-filter:blur(18px);
+            -webkit-backdrop-filter:blur(18px); z-index:1000;
+            display:flex; align-items:flex-end; justify-content:center;
+            opacity:0; visibility:hidden; transition:all 0.4s var(--ease-spring);
+            padding:20px;
         }
-
-        .modal-overlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-
+        .modal-overlay.show { opacity:1; visibility:visible; }
         .modal {
-            background: linear-gradient(145deg, rgba(30,27,75,0.95), rgba(20,18,50,0.98));
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            border-radius: 28px 28px 0 0;
-            width: 100%;
-            max-width: 440px;
-            max-height: 75vh;
-            padding: 20px 20px calc(20px + var(--safe-bottom));
-            transform: translateY(100%);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            border: 1px solid var(--glass-border);
-            border-bottom: none;
-            display: flex;
-            flex-direction: column;
+            background:linear-gradient(160deg,rgba(30,24,74,0.96),rgba(15,12,36,0.98));
+            backdrop-filter:blur(30px); -webkit-backdrop-filter:blur(30px);
+            border-radius:28px 28px 0 0; width:100%; max-width:440px;
+            max-height:75vh; padding:20px 20px calc(20px + var(--safe-bottom));
+            transform:translateY(100%); transition:transform 0.45s var(--ease-spring);
+            border:1px solid var(--glass-border); border-bottom:none;
+            display:flex; flex-direction:column;
         }
-
-        .modal-overlay.show .modal {
-            transform: translateY(0);
-        }
-
-        .modal-handle {
-            width: 40px;
-            height: 4px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 2px;
-            margin: 0 auto 16px;
-            flex-shrink: 0;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            flex-shrink: 0;
-        }
-
-        .modal-header h2 {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
+        .modal-overlay.show .modal { transform:translateY(0); }
+        .modal-handle { width:40px; height:4px; background:rgba(255,255,255,0.2); border-radius:2px; margin:0 auto 16px; flex-shrink:0; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-shrink:0; }
+        .modal-header h2 { font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px; }
+        .modal-header h2 svg { width:17px; height:17px; color:var(--primary-light); }
         .modal-header .close-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--text-secondary);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background:var(--card-bg); border:1px solid var(--glass-border);
+            color:var(--text-secondary); width:34px; height:34px; border-radius:50%;
+            cursor:pointer; transition:all 0.25s ease;
+            display:flex; align-items:center; justify-content:center;
         }
-
-        .modal-playlist {
-            flex: 1;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-
-        .modal-playlist::-webkit-scrollbar {
-            width: 3px;
-        }
-
-        .modal-playlist::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.05);
-            border-radius: 2px;
-        }
-
-        .modal-playlist::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 2px;
-        }
-
+        .modal-header .close-btn svg { width:15px; height:15px; }
+        .modal-header .close-btn:active { transform:scale(0.85); }
+        .modal-playlist { flex:1; overflow-y:auto; padding-right:4px; }
+        .modal-playlist::-webkit-scrollbar { width:3px; }
+        .modal-playlist::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:2px; }
+        .modal-playlist::-webkit-scrollbar-thumb { background:var(--primary); border-radius:2px; }
         .modal-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 14px;
-            border-radius: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 2px;
-            gap: 12px;
+            display:flex; align-items:center; padding:10px 12px;
+            border-radius:14px; cursor:pointer; transition:all 0.25s var(--ease-smooth);
+            margin-bottom:2px; gap:10px;
         }
+        .modal-item:active { transform:scale(0.97); background:var(--card-bg); }
+        .modal-item.active { background:rgba(124,77,255,0.16); border-left:3px solid var(--primary); }
+        .modal-item .cat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .modal-item .cat-dot.christian { background:var(--accent); }
+        .modal-item .cat-dot.own { background:var(--accent-2); }
+        .modal-item .info { flex:1; min-width:0; }
+        .modal-item .info .title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .modal-item .info .sub { font-size:10.5px; color:var(--text-secondary); opacity:0.75; margin-top:1px; }
+        .modal-item .status-icon { color:var(--accent); flex-shrink:0; }
+        .modal-item .status-icon svg { width:13px; height:13px; }
+        .modal-item .fav-star { flex-shrink:0; color:var(--text-secondary); opacity:0.3; transition:all 0.3s ease; }
+        .modal-item .fav-star svg { width:13px; height:13px; }
+        .modal-item .fav-star.favorited { color:var(--secondary); opacity:1; }
+        .modal-item .delete-btn { background:none; border:none; color:var(--secondary); cursor:pointer; padding:4px 6px; opacity:0.45; transition:all 0.25s ease; display:flex; }
+        .modal-item .delete-btn svg { width:14px; height:14px; }
+        .modal-item .delete-btn:active { opacity:1; transform:scale(0.8); }
+        .modal-empty { text-align:center; color:var(--text-secondary); padding:40px 20px; font-size:13px; opacity:0.75; }
+        .modal-empty svg { width:40px; height:40px; display:block; margin:0 auto 14px; color:var(--primary-light); opacity:0.6; }
+        .modal-empty .sub { font-size:12px; opacity:0.7; margin-top:6px; }
+        .storage-info { display:flex; align-items:center; justify-content:center; gap:6px; text-align:center; font-size:10px; color:var(--text-secondary); opacity:0.6; padding:8px 0 2px; flex-shrink:0; }
+        .storage-info svg { width:11px; height:11px; }
 
-        .modal-item:active {
-            transform: scale(0.97);
-        }
-
-        .modal-item.active {
-            background: rgba(108, 60, 225, 0.2);
-            border-left: 3px solid var(--primary);
-        }
-
-        .modal-item .num {
-            font-size: 12px;
-            color: var(--text-secondary);
-            width: 24px;
-            text-align: center;
-            flex-shrink: 0;
-            font-weight: 600;
-            opacity: 0.5;
-        }
-
-        .modal-item .info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .modal-item .info .title {
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .modal-item .info .sub {
-            font-size: 11px;
-            color: var(--text-secondary);
-            opacity: 0.6;
-        }
-
-        .modal-item .status-icon {
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-
-        .modal-item .fav-star {
-            font-size: 14px;
-            flex-shrink: 0;
-            color: var(--text-secondary);
-            opacity: 0.3;
-            transition: all 0.3s ease;
-        }
-
-        .modal-item .fav-star.favorited {
-            color: var(--accent);
-            opacity: 1;
-        }
-
-        .modal-item .delete-btn {
-            background: none;
-            border: none;
-            color: var(--secondary);
-            font-size: 16px;
-            cursor: pointer;
-            padding: 4px 8px;
-            opacity: 0.4;
-            transition: all 0.3s ease;
-        }
-
-        .modal-item .delete-btn:active {
-            opacity: 1;
-            transform: scale(0.8);
-        }
-
-        .modal-empty {
-            text-align: center;
-            color: var(--text-secondary);
-            padding: 40px 20px;
-            font-size: 14px;
-            opacity: 0.6;
-        }
-
-        .modal-empty .big-icon {
-            font-size: 48px;
-            display: block;
-            margin-bottom: 16px;
-        }
-
-        .modal-empty .sub {
-            font-size: 13px;
-            opacity: 0.7;
-            margin-top: 8px;
-        }
-
-        .storage-info {
-            text-align: center;
-            font-size: 11px;
-            color: var(--text-secondary);
-            opacity: 0.5;
-            padding: 8px 0 4px;
-            flex-shrink: 0;
-        }
-
+        /* TOAST */
         .toast {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%) translateY(60px);
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(20px);
-            padding: 10px 22px;
-            border-radius: 14px;
-            color: white;
-            font-size: 13px;
-            border: 1px solid var(--glass-border);
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            opacity: 0;
-            pointer-events: none;
-            z-index: 2000;
-            max-width: 85%;
-            text-align: center;
-            font-weight: 500;
+            position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(60px);
+            background:rgba(10,8,24,0.92); backdrop-filter:blur(20px);
+            padding:10px 20px; border-radius:14px; color:white; font-size:12.5px;
+            font-weight:500; border:1px solid var(--glass-border);
+            transition:all 0.5s var(--ease-spring); opacity:0; pointer-events:none;
+            z-index:2000; max-width:85%; text-align:center; display:flex; align-items:center; gap:8px;
         }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        .toast svg { width:14px; height:14px; flex-shrink:0; color:var(--accent); }
 
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
+        /* RESPONSIVE */
+        @media (max-width:420px) {
+            .player-container { padding:14px 14px calc(14px + var(--safe-bottom)); }
+            .album-art { width:120px; height:120px; }
+            .header-title h1 { font-size:16px; }
+            .controls button { width:40px; height:40px; font-size:15px; }
+            .controls .play-btn { width:50px; height:50px; font-size:18px; }
+            .song-title { font-size:15px; }
+            .modal { padding:16px 16px calc(16px + var(--safe-bottom)); max-height:65vh; }
+            .volume-slider { width:50px; }
+            .action-btn { font-size:11px; padding:8px 10px; min-width:70px; }
         }
-
-        @media (max-width: 420px) {
-            .player-container { padding: 14px 14px calc(14px + var(--safe-bottom)); }
-            .album-art { width: 150px; height: 150px; }
-            .header-title h1 { font-size: 16px; }
-            .controls button { width: 42px; height: 42px; font-size: 18px; }
-            .controls .play-btn { width: 54px; height: 54px; font-size: 22px; }
-            .song-title { font-size: 16px; }
-            .modal { padding: 16px 16px calc(16px + var(--safe-bottom)); max-height: 65vh; }
-            .volume-slider { width: 55px; }
-            .action-btn { font-size: 12px; padding: 8px 14px; min-width: 80px; }
+        @media (max-width:360px) {
+            .album-art { width:100px; height:100px; }
+            .controls button { width:36px; height:36px; font-size:14px; }
+            .controls .play-btn { width:44px; height:44px; font-size:16px; }
+            .song-title { font-size:13px; }
+            .mode-btn { font-size:9px; }
         }
-
-        @media (max-width: 360px) {
-            .album-art { width: 130px; height: 130px; }
-            .controls button { width: 38px; height: 38px; font-size: 16px; }
-            .controls .play-btn { width: 48px; height: 48px; font-size: 20px; }
-            .song-title { font-size: 14px; }
+        @media (min-height:800px) { 
+            .album-art { width:160px; height:160px; }
         }
-
-        @media (min-height: 800px) {
-            .album-art { width: 200px; height: 200px; }
+        @media (max-height:640px) {
+            .album-art { width:100px; height:100px; }
+            .controls button { width:36px; height:36px; font-size:14px; }
+            .controls .play-btn { width:44px; height:44px; font-size:16px; }
+            .wave-container { height:14px; }
+            .song-title { font-size:14px; }
+            .header-title h1 { font-size:14px; }
+            .action-btn { padding:6px 8px; font-size:10px; min-width:60px; }
+            .mode-btn { padding:5px 3px; }
         }
-
-        @media (max-height: 640px) {
-            .album-art { width: 120px; height: 120px; }
-            .controls button { width: 38px; height: 38px; font-size: 16px; }
-            .controls .play-btn { width: 48px; height: 48px; font-size: 20px; }
-            .wave-container { height: 18px; }
-            .wave { height: 4px; }
-            .wave:nth-child(1) { height: 6px; }
-            .wave:nth-child(2) { height: 10px; }
-            .wave:nth-child(3) { height: 14px; }
-            .wave:nth-child(4) { height: 10px; }
-            .wave:nth-child(5) { height: 6px; }
-            .song-title { font-size: 15px; }
-            .header-title h1 { font-size: 15px; }
-            .action-btn { padding: 6px 12px; font-size: 11px; min-width: 70px; }
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .player-container {
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        /* Loader */
-        .loader {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
-            border-top-color: var(--accent);
-            animation: spin 0.8s ease-in-out infinite;
-            margin-right: 8px;
-            vertical-align: middle;
+        @media (prefers-reduced-motion:reduce) {
+            *,*::before,*::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
         }
     </style>
 </head>
 <body>
 
-    <div class="offline-badge" id="offlineBadge">📡 Sin conexión - Modo offline</div>
+<div class="offline-badge" id="offlineBadge"></div>
+<div class="toast" id="toast"></div>
 
-    <div class="toast" id="toast"></div>
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 id="modalTitleIcon">Mi Biblioteca</h2>
+            <button class="close-btn" id="closeModalBtn"></button>
+        </div>
+        <div class="modal-playlist" id="modalPlaylist"></div>
+        <div class="storage-info" id="storageInfo"></div>
+    </div>
+</div>
 
-    <input type="file" id="fileInput" accept=".mp3,audio/mpeg" multiple>
+<div class="player-container">
 
-    <div class="modal-overlay" id="modalOverlay">
-        <div class="modal">
-            <div class="modal-handle"></div>
-            <div class="modal-header">
-                <h2>📋 Mi Biblioteca</h2>
-                <button class="close-btn" id="closeModalBtn">✕</button>
-            </div>
-            <div class="modal-playlist" id="modalPlaylist"></div>
-            <div class="storage-info" id="storageInfo">💾 0 canciones • 0 MB usados</div>
+    <div class="header">
+        <div class="header-title">
+            <span class="logo" id="logoIcon"></span>
+            <h1>Mi Música</h1>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn" id="themeBtn" title="Modo oscuro/claro"></button>
+            <button class="header-btn" id="repeatBtn" title="Repetir"></button>
         </div>
     </div>
 
-    <div class="player-container">
-
-        <div class="header">
-            <div class="header-title">
-                <span class="icon">🎵</span>
-                <h1>Mi Música</h1>
-            </div>
-            <div class="header-actions">
-                <button class="header-btn" id="themeBtn" title="Modo oscuro/claro">🌙</button>
-                <button class="header-btn" id="repeatBtn" title="Repetir">🔁</button>
-            </div>
+    <div class="album-wrapper">
+        <div class="album-art" id="albumArt">
+            <div class="disc-pin"></div>
+            <img src="" alt="Portada" id="albumImage">
         </div>
-
-        <div class="album-wrapper">
-            <div class="album-art" id="albumArt">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect width='400' height='400' fill='%236C3CE1'/%3E%3Ctext x='200' y='200' text-anchor='middle' dy='.3em' fill='white' font-size='100' font-family='sans-serif'%3E🎵%3C/text%3E%3C/svg%3E" alt="Portada" id="albumImage">
-            </div>
-        </div>
-
-        <div class="wave-container" id="waveContainer">
-            <div class="wave" id="wave1"></div>
-            <div class="wave" id="wave2"></div>
-            <div class="wave" id="wave3"></div>
-            <div class="wave" id="wave4"></div>
-            <div class="wave" id="wave5"></div>
-        </div>
-
-        <div class="song-info">
-            <div class="song-title" id="currentSongTitle">🎵 Cargando música...</div>
-            <div class="song-artist" id="currentSongArtist">Preparando tu biblioteca</div>
-        </div>
-
-        <button class="favorite-btn" id="favoriteBtn">🤍</button>
-
-        <div class="controls">
-            <button id="prevBtn" title="Anterior">⏮</button>
-            <button class="play-btn" id="playBtn" title="Reproducir/Pausar">▶</button>
-            <button id="nextBtn" title="Siguiente">⏭</button>
-        </div>
-
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="time-info">
-                <span id="currentTime">0:00</span>
-                <span id="totalTime">0:00</span>
-            </div>
-        </div>
-
-        <div class="extras-bar">
-            <div class="group">
-                <button class="icon-btn" id="shuffleBtn" title="Aleatorio">🔀</button>
-                <button class="icon-btn" id="likeBtn" title="Me gusta">❤️</button>
-            </div>
-            <div class="group">
-                <span class="icon-btn" style="font-size:14px; color:var(--text-secondary)">🔊</span>
-                <input type="range" class="volume-slider" id="volumeControl" min="0" max="1" step="0.05" value="0.8">
-            </div>
-        </div>
-
-        <div class="action-buttons">
-            <button class="action-btn primary" id="importBtn">
-                📂 Importar MP3
-            </button>
-            <button class="action-btn update-btn" id="updateBtn">
-                🔄 Actualizar
-                <span class="badge" id="updateBadge">0</span>
-            </button>
-            <button class="action-btn" id="openPlaylistBtn">
-                📋 Biblioteca
-                <span class="badge" id="playlistBadge">0</span>
-            </button>
-        </div>
-
     </div>
 
-    <script>
-        // ============================================
-        // 📋 LISTA DE CANCIONES PRECARGADAS (ENLACES RAW)
-        // ============================================
-        const PRECARGED_SONGS = [
-            { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
-            { title: "EL QUE NO DUERME v2", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
-            { title: "El desorden perfecto", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20desorden%20perfecto.mp3" },
-            { title: "El reloj se para", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20reloj%20se%20para.mp3" },
-            { title: "El tamaño de tu mano", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20tama%C3%B1o%20de%20tu%20mano.mp3" },
-            { title: "Mi lugar en el mundo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20en%20el%20mundo.mp3" },
-            { title: "Mi princesa", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20princesa.mp3" },
-            { title: "Si tu voluntad duele", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Si%20tu%20voluntad%20duele.mp3" },
-            { title: "También sus espinas", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tambi%C3%A9n%20sus%20espinas.mp3" },
-            { title: "Te amo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Te%20amo.mp3" },
-            { title: "Todavía me sorprende", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Todav%C3%ADa%20me%20sorprende.mp3" },
-            { title: "Tu nombre es mi respiración", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20nombre%20es%20mi%20respiraci%C3%B3n.mp3" },
-            { title: "Contigo todo pesa menos", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Contigo%20todo%20pesa%20menos.mp3" },
-            { title: "Nunca me dejarás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Nunca%20me%20dejar%C3%A1s.mp3" },
-            { title: "Mi lugar favorito", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20favorito.mp3" },
-            { title: "Sorprendeme Dios", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Sorprendeme%20Dios.mp3" },
-            { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
-            { title: "Alma mía confía", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Alma%20mía%20confía.mp3" }
-        ];
+    <div class="wave-container" id="waveContainer">
+        <div class="wave" id="wave1"></div>
+        <div class="wave" id="wave2"></div>
+        <div class="wave" id="wave3"></div>
+        <div class="wave" id="wave4"></div>
+        <div class="wave" id="wave5"></div>
+    </div>
 
-        // ============================================
-        // 💾 GESTOR DE BASE DE DATOS (IndexedDB)
-        // ============================================
-        class MusicDatabase {
-            constructor() {
-                this.dbName = 'MusicPlayerDB';
-                this.storeName = 'songs';
-                this.db = null;
-                this.isReady = false;
-            }
+    <div class="song-info">
+        <div class="song-title" id="currentSongTitle">Cargando música...</div>
+        <div class="song-artist" id="currentSongArtist">Preparando tu biblioteca</div>
+    </div>
 
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.dbName, 3);
-                    
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (db.objectStoreNames.contains(this.storeName)) {
-                            db.deleteObjectStore(this.storeName);
-                            console.log('🗑️ Store eliminado para recrear');
-                        }
-                        const store = db.createObjectStore(this.storeName, { 
-                            keyPath: 'id', 
-                            autoIncrement: true 
+    <button class="favorite-btn" id="favoriteBtn"></button>
+
+    <div class="mode-switch" id="modeSwitch">
+        <div class="mode-indicator" id="modeIndicator"></div>
+        <button class="mode-btn active" id="modeAllBtn" data-mode="all"></button>
+        <button class="mode-btn" id="modeChristianBtn" data-mode="christian"></button>
+        <button class="mode-btn" id="modeOwnBtn" data-mode="own"></button>
+    </div>
+
+    <div class="controls">
+        <button id="prevBtn" title="Anterior"></button>
+        <button class="play-btn" id="playBtn" title="Reproducir/Pausar"></button>
+        <button id="nextBtn" title="Siguiente"></button>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="time-info">
+            <span id="currentTime">0:00</span>
+            <span id="totalTime">0:00</span>
+        </div>
+    </div>
+
+    <div class="extras-bar">
+        <div class="group">
+            <button class="icon-btn" id="shuffleBtn" title="Aleatorio"></button>
+            <button class="icon-btn" id="likeBtn" title="Me gusta"></button>
+        </div>
+        <div class="group">
+            <span class="icon-btn" id="volumeIcon" style="color:var(--text-secondary)"></span>
+            <input type="range" class="volume-slider" id="volumeControl" min="0" max="1" step="0.05" value="0.8">
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <button class="action-btn update-btn" id="updateBtn"></button>
+        <button class="action-btn primary" id="openPlaylistBtn"></button>
+    </div>
+
+</div>
+<script src="songs.js"></script>
+<script>
+    // ============================================
+    // ICONOS LINEALES
+    // ============================================
+    const ICONS = {
+        play: '<polygon points="6 3 20 12 6 21 6 3"></polygon>',
+        pause: '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>',
+        prev: '<polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line>',
+        next: '<polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line>',
+        shuffle: '<polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line>',
+        repeat: '<polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path>',
+        heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"></path>',
+        moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path>',
+        sun: '<circle cx="12" cy="12" r="4.5"></circle><line x1="12" y1="1.5" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="22.5"></line><line x1="4.2" y1="4.2" x2="6" y2="6"></line><line x1="18" y1="18" x2="19.8" y2="19.8"></line><line x1="1.5" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="22.5" y2="12"></line><line x1="4.2" y1="19.8" x2="6" y2="18"></line><line x1="18" y1="6" x2="19.8" y2="4.2"></line>',
+        folder: '<path d="M3 6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"></path>',
+        folderPlus: '<path d="M3 6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"></path><line x1="12" y1="10.5" x2="12" y2="15.5"></line><line x1="9.5" y1="13" x2="14.5" y2="13"></line>',
+        list: '<line x1="9" y1="6" x2="21" y2="6"></line><line x1="9" y1="12" x2="21" y2="12"></line><line x1="9" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="1.3"></circle><circle cx="4" cy="12" r="1.3"></circle><circle cx="4" cy="18" r="1.3"></circle>',
+        refresh: '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.5 9a8.5 8.5 0 0 1 14.5-4.9L23 10M1 14l5-5a8.5 8.5 0 0 0 14.5 4.9"></path>',
+        trash: '<polyline points="4 7 20 7"></polyline><path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
+        volume: '<polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9"></polygon><path d="M16.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 6a9 9 0 0 1 0 12"></path>',
+        x: '<line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line>',
+        music: '<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>',
+        disc: '<circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="2.5"></circle>',
+        cross: '<line x1="12" y1="2.5" x2="12" y2="21.5"></line><line x1="5.5" y1="8" x2="18.5" y2="8"></line>',
+        infinity: '<path d="M18.2 8.5a3.5 3.5 0 0 1 0 7c-1.9 0-3.5-1.6-6.2-4.5C9.3 8.1 7.7 6.5 5.8 6.5a3.5 3.5 0 1 0 0 7c1.9 0 3.5-1.6 6.2-4.5 2.7-2.9 4.3-4.5 6.2-4.5z"></path>',
+        user: '<path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4.5"></circle>',
+        wifiOff: '<line x1="2" y1="2" x2="22" y2="22"></line><path d="M8.5 16.5a5 5 0 0 1 7 0"></path><path d="M5 12.5a10 10 0 0 1 3-2"></path><path d="M12 20h.01"></path><path d="M16.5 12.5a10 10 0 0 1 2.5 1.6"></path><path d="M19 9a14 14 0 0 1 3 2"></path><path d="M2 9a14 14 0 0 1 5.5-3.5"></path><path d="M9.5 5.1A14 14 0 0 1 22 9"></path>',
+        check: '<polyline points="20 6 9 17 4 12"></polyline>',
+        image: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>',
+    };
+    function icon(name, extraClass) {
+        return `<svg class="icon${extraClass?' '+extraClass:''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
+    }
+
+    // ============================================
+    // LISTA DE IMÁGENES RANDOM PARA PORTADA
+    // ============================================
+    const PORTADAS = [
+        'https://picsum.photos/seed/music1/400/400',
+        'https://picsum.photos/seed/music2/400/400',
+        'https://picsum.photos/seed/music3/400/400',
+        'https://picsum.photos/seed/music4/400/400',
+        'https://picsum.photos/seed/music5/400/400',
+        'https://picsum.photos/seed/music6/400/400',
+        'https://picsum.photos/seed/music7/400/400',
+        'https://picsum.photos/seed/music8/400/400',
+        'https://picsum.photos/seed/music9/400/400',
+        'https://picsum.photos/seed/music10/400/400',
+    ];
+
+    function getRandomPortada() {
+        return PORTADAS[Math.floor(Math.random() * PORTADAS.length)];
+    }
+
+    // ============================================
+    // LISTAS DE CANCIONES ACTUALIZADAS
+    // ============================================
+
+    const TODAS = [...CRISTIANS, ...MIAS];
+
+    // ============================================
+    // GESTOR IndexedDB
+    // ============================================
+    class MusicDatabase {
+        constructor() { this.dbName='MusicPlayerDB'; this.storeName='songs'; this.db=null; this.isReady=false; }
+        async init() {
+            return new Promise((resolve,reject)=>{
+                const request=indexedDB.open(this.dbName,3);
+                request.onupgradeneeded=(e)=>{
+                    const db=e.target.result;
+                    if(db.objectStoreNames.contains(this.storeName)) db.deleteObjectStore(this.storeName);
+                    const store=db.createObjectStore(this.storeName,{keyPath:'id',autoIncrement:true});
+                    store.createIndex('title','title',{unique:false});
+                };
+                request.onsuccess=(e)=>{ this.db=e.target.result; this.isReady=true; resolve(); };
+                request.onerror=(e)=>reject(e.target.error);
+            });
+        }
+        async addSong(data) {
+            return new Promise((resolve,reject)=>{
+                const tx=this.db.transaction([this.storeName],'readwrite');
+                const store=tx.objectStore(this.storeName);
+                const req=store.add(data);
+                req.onsuccess=()=>resolve(req.result);
+                req.onerror=()=>reject(req.error);
+            });
+        }
+        async getAllSongs() {
+            return new Promise((resolve,reject)=>{
+                const tx=this.db.transaction([this.storeName],'readonly');
+                const store=tx.objectStore(this.storeName);
+                const req=store.getAll();
+                req.onsuccess=()=>resolve(req.result||[]);
+                req.onerror=()=>reject(req.error);
+            });
+        }
+        async deleteSong(id) {
+            return new Promise((resolve,reject)=>{
+                const tx=this.db.transaction([this.storeName],'readwrite');
+                const store=tx.objectStore(this.storeName);
+                const req=store.delete(id);
+                req.onsuccess=()=>resolve();
+                req.onerror=()=>reject(req.error);
+            });
+        }
+        async updateSong(id,data) {
+            return new Promise((resolve,reject)=>{
+                const tx=this.db.transaction([this.storeName],'readwrite');
+                const store=tx.objectStore(this.storeName);
+                const req=store.put({...data,id});
+                req.onsuccess=()=>resolve();
+                req.onerror=()=>reject(req.error);
+            });
+        }
+        async getTotalSize() {
+            const songs=await this.getAllSongs();
+            let total=0; songs.forEach(s=>{ if(s.blob) total+=s.blob.size; });
+            return total;
+        }
+        async clearAll() {
+            return new Promise((resolve,reject)=>{
+                const tx=this.db.transaction([this.storeName],'readwrite');
+                const store=tx.objectStore(this.storeName);
+                const req=store.clear();
+                req.onsuccess=()=>resolve();
+                req.onerror=()=>reject(req.error);
+            });
+        }
+        async getSongCount() {
+            const songs=await this.getAllSongs();
+            return songs.length;
+        }
+    }
+
+    // ============================================
+    // REPRODUCTOR PRINCIPAL
+    // ============================================
+    class MusicPlayer {
+        constructor() {
+            this.db=new MusicDatabase();
+            this.allSongs=[];
+            this.playlist=[];
+            this.currentIndex=0;
+            this.currentMode='all';
+            this.isPlaying=false;
+            this.isShuffle=false;
+            this.isRepeat=false;
+            this.isDragging=false;
+            this.currentSongLiked=false;
+            this.shuffleHistory=[];
+            this.isLoading=false;
+            this.isUpdating=false;
+            this.audio=new Audio();
+            this.portadaActual = getRandomPortada();
+            this.renderStaticIcons();
+            this.initDOM();
+            this.initEventListeners();
+            this.initApp();
+        }
+
+        renderStaticIcons() {
+            document.getElementById('offlineBadge').innerHTML=icon('wifiOff')+' Sin conexión — Modo offline';
+            document.getElementById('logoIcon').innerHTML=icon('music');
+            document.getElementById('modalTitleIcon').innerHTML=icon('list')+' Mi Biblioteca';
+            document.getElementById('closeModalBtn').innerHTML=icon('x');
+            document.getElementById('prevBtn').innerHTML=icon('prev');
+            document.getElementById('nextBtn').innerHTML=icon('next');
+            document.getElementById('shuffleBtn').innerHTML=icon('shuffle');
+            document.getElementById('volumeIcon').innerHTML=icon('volume');
+            document.getElementById('openPlaylistBtn').innerHTML=icon('list')+'<span>Biblioteca</span><span class="badge" id="playlistBadge">0</span>';
+            document.getElementById('modeAllBtn').innerHTML=icon('infinity')+'<span>Todo</span>';
+            document.getElementById('modeChristianBtn').innerHTML=icon('cross')+'<span>Cristiana</span>';
+            document.getElementById('modeOwnBtn').innerHTML=icon('user')+'<span>Mías</span>';
+            
+            // ICONOS PARA LOS BOTONES DEL HEADER
+            document.getElementById('themeBtn').innerHTML = icon('moon');
+            document.getElementById('repeatBtn').innerHTML = icon('repeat');
+            
+            // ICONO PARA EL BOTÓN DE REPRODUCCIÓN (play)
+            document.getElementById('playBtn').innerHTML = icon('play');
+            
+            // IMAGEN DE PORTADA RANDOM
+            document.getElementById('albumImage').src = this.portadaActual;
+            
+            this.renderUpdateButtonIdle();
+        }
+        renderUpdateButtonIdle() {
+            document.getElementById('updateBtn').innerHTML=icon('refresh')+'<span>Actualizar</span><span class="badge" id="updateBadge">0</span>';
+        }
+
+        initDOM() {
+            this.dom={
+                playBtn:document.getElementById('playBtn'),
+                prevBtn:document.getElementById('prevBtn'),
+                nextBtn:document.getElementById('nextBtn'),
+                progressFill:document.getElementById('progressFill'),
+                progressBar:document.getElementById('progressBar'),
+                currentTime:document.getElementById('currentTime'),
+                totalTime:document.getElementById('totalTime'),
+                volumeControl:document.getElementById('volumeControl'),
+                currentTitle:document.getElementById('currentSongTitle'),
+                currentArtist:document.getElementById('currentSongArtist'),
+                favoriteBtn:document.getElementById('favoriteBtn'),
+                likeBtn:document.getElementById('likeBtn'),
+                shuffleBtn:document.getElementById('shuffleBtn'),
+                repeatBtn:document.getElementById('repeatBtn'),
+                themeBtn:document.getElementById('themeBtn'),
+                albumArt:document.getElementById('albumArt'),
+                albumImage:document.getElementById('albumImage'),
+                waves:document.querySelectorAll('.wave'),
+                modalOverlay:document.getElementById('modalOverlay'),
+                modalPlaylist:document.getElementById('modalPlaylist'),
+                openPlaylistBtn:document.getElementById('openPlaylistBtn'),
+                closeModalBtn:document.getElementById('closeModalBtn'),
+                storageInfo:document.getElementById('storageInfo'),
+                toast:document.getElementById('toast'),
+                offlineBadge:document.getElementById('offlineBadge'),
+                updateBtn:document.getElementById('updateBtn'),
+                modeSwitch:document.getElementById('modeSwitch'),
+                modeIndicator:document.getElementById('modeIndicator'),
+                modeBtns:document.querySelectorAll('.mode-btn')
+            };
+        }
+
+        initEventListeners() {
+            this.dom.playBtn.addEventListener('click',()=>this.togglePlay());
+            this.dom.prevBtn.addEventListener('click',()=>this.prevSong());
+            this.dom.nextBtn.addEventListener('click',()=>this.nextSong());
+            this.dom.favoriteBtn.addEventListener('click',()=>this.toggleFavorite());
+            this.dom.likeBtn.addEventListener('click',()=>this.toggleFavorite());
+            this.dom.shuffleBtn.addEventListener('click',()=>this.toggleShuffle());
+            this.dom.repeatBtn.addEventListener('click',()=>this.toggleRepeat());
+            this.dom.themeBtn.addEventListener('click',()=>this.toggleTheme());
+            this.dom.volumeControl.addEventListener('input',(e)=>{ this.audio.volume=parseFloat(e.target.value); });
+            this.audio.addEventListener('timeupdate',()=>this.updateProgress());
+            this.dom.progressBar.addEventListener('mousedown',(e)=>this.startDrag(e));
+            this.dom.progressBar.addEventListener('touchstart',(e)=>this.startDrag(e));
+            document.addEventListener('mousemove',(e)=>this.drag(e));
+            document.addEventListener('touchmove',(e)=>this.drag(e));
+            document.addEventListener('mouseup',()=>this.endDrag());
+            document.addEventListener('touchend',()=>this.endDrag());
+            this.audio.addEventListener('ended',()=>this.onEnded());
+            this.audio.addEventListener('error',()=>this.onError());
+            document.addEventListener('keydown',(e)=>this.onKeyDown(e));
+            this.dom.openPlaylistBtn.addEventListener('click',()=>this.openModal());
+            this.dom.closeModalBtn.addEventListener('click',()=>this.closeModal());
+            this.dom.modalOverlay.addEventListener('click',(e)=>{ if(e.target===this.dom.modalOverlay) this.closeModal(); });
+            this.dom.updateBtn.addEventListener('click',()=>this.updateLibrary());
+            this.dom.modeBtns.forEach(btn=>{
+                btn.addEventListener('click',()=>this.playMode(btn.dataset.mode));
+            });
+            window.addEventListener('online',()=>this.updateOfflineStatus());
+            window.addEventListener('offline',()=>this.updateOfflineStatus());
+            this.updateOfflineStatus();
+        }
+
+        async initApp() {
+            if(this.isLoading) return;
+            this.isLoading=true;
+            try {
+                await this.db.init();
+                const count=await this.db.getSongCount();
+                if(count===0) {
+                    this.dom.currentTitle.textContent='Cargando biblioteca...';
+                    this.showToast('folderPlus','Cargando canciones...');
+                    await this.loadPrecargedSongs();
+                } else {
+                    this.showToast('check',`${count} canciones cargadas`);
+                }
+                await this.loadPlaylist();
+                this.checkForUpdates();
+            } catch(e) {
+                console.error(e);
+                this.showToast('x','Error al cargar la biblioteca');
+            } finally { this.isLoading=false; }
+        }
+
+        async updateLibrary() {
+            if(this.isUpdating) return;
+            if(!navigator.onLine) { this.showToast('wifiOff','Sin conexión, no se puede actualizar'); return; }
+            this.isUpdating=true;
+            this.dom.updateBtn.disabled=true;
+            this.dom.updateBtn.innerHTML='<span class="spinner"></span><span>Actualizando...</span>';
+            try {
+                const currentSongs=await this.db.getAllSongs();
+                const currentTitles=new Set(currentSongs.map(s=>s.title));
+                let newSongs=0, alreadyExist=0, failed=0;
+                for(const song of TODAS) {
+                    if(currentTitles.has(song.title)) { alreadyExist++; continue; }
+                    try {
+                        const resp=await fetch(song.url);
+                        if(!resp.ok){ failed++; continue; }
+                        const blob=await resp.blob();
+                        await this.db.addSong({
+                            fileName:song.title+'.mp3',
+                            title:song.title,
+                            blob:blob,
+                            liked:false,
+                            category: CRISTIANS.some(c=>c.title===song.title) ? 'cristiana' : 'propia',
+                            dateAdded:new Date().toISOString()
                         });
-                        store.createIndex('title', 'title', { unique: false });
-                        console.log('📦 Store creado correctamente');
-                    };
-
-                    request.onsuccess = (event) => {
-                        this.db = event.target.result;
-                        this.isReady = true;
-                        console.log('✅ Base de datos abierta (versión 3)');
-                        resolve();
-                    };
-
-                    request.onerror = (event) => {
-                        console.error('❌ Error abriendo DB:', event.target.error);
-                        reject(event.target.error);
-                    };
-                });
-            }
-
-            async addSong(songData) {
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction([this.storeName], 'readwrite');
-                    const store = transaction.objectStore(this.storeName);
-                    const request = store.add(songData);
-                    
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async getAllSongs() {
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction([this.storeName], 'readonly');
-                    const store = transaction.objectStore(this.storeName);
-                    const request = store.getAll();
-                    
-                    request.onsuccess = () => {
-                        const songs = request.result || [];
-                        console.log(`📊 ${songs.length} canciones obtenidas de la DB`);
-                        resolve(songs);
-                    };
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async deleteSong(id) {
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction([this.storeName], 'readwrite');
-                    const store = transaction.objectStore(this.storeName);
-                    const request = store.delete(id);
-                    
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async updateSong(id, data) {
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction([this.storeName], 'readwrite');
-                    const store = transaction.objectStore(this.storeName);
-                    const request = store.put({ ...data, id });
-                    
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async getTotalSize() {
-                const songs = await this.getAllSongs();
-                let total = 0;
-                songs.forEach(song => {
-                    if (song.blob) total += song.blob.size;
-                });
-                return total;
-            }
-
-            async clearAll() {
-                return new Promise((resolve, reject) => {
-                    const transaction = this.db.transaction([this.storeName], 'readwrite');
-                    const store = transaction.objectStore(this.storeName);
-                    const request = store.clear();
-                    
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async getSongCount() {
-                const songs = await this.getAllSongs();
-                return songs.length;
-            }
-
-            async deleteAll() {
-                return this.clearAll();
+                        newSongs++;
+                    } catch(e){ failed++; }
+                }
+                await this.loadPlaylist();
+                let msg='Actualización completa';
+                if(newSongs>0) msg+=`: ${newSongs} nuevas`;
+                if(alreadyExist>0) msg+=`, ${alreadyExist} ya existían`;
+                if(failed>0) msg+=`, ${failed} fallaron`;
+                this.showToast('check',msg);
+            } catch(e) {
+                console.error(e);
+                this.showToast('x','Error al actualizar la biblioteca');
+            } finally {
+                this.isUpdating=false;
+                this.dom.updateBtn.disabled=false;
+                this.renderUpdateButtonIdle();
+                this.checkForUpdates();
             }
         }
 
-        // ============================================
-        // 🎵 REPRODUCTOR PRINCIPAL
-        // ============================================
-        class MusicPlayer {
-            constructor() {
-                this.db = new MusicDatabase();
-                this.playlist = [];
-                this.currentIndex = 0;
-                this.isPlaying = false;
-                this.isShuffle = false;
-                this.isRepeat = false;
-                this.isDragging = false;
-                this.currentSongLiked = false;
-                this.shuffleHistory = [];
-                this.isLoaded = false;
-                this.isLoading = false;
-                this.isUpdating = false;
-                
-                this.audio = new Audio();
-                this.initDOM();
-                this.initEventListeners();
-                this.initApp();
-            }
+        async checkForUpdates() {
+            try {
+                const currentSongs=await this.db.getAllSongs();
+                const currentTitles=new Set(currentSongs.map(s=>s.title));
+                let missing=0;
+                for(const song of TODAS) {
+                    if(!currentTitles.has(song.title)) missing++;
+                }
+                const badge=document.getElementById('updateBadge');
+                if(badge) { badge.textContent=missing; badge.style.display=missing>0?'flex':'none'; }
+                if(missing>0) this.showToast('refresh',`${missing} canciones nuevas disponibles`);
+            } catch(e){ console.error(e); }
+        }
 
-            initDOM() {
-                this.dom = {
-                    playBtn: document.getElementById('playBtn'),
-                    prevBtn: document.getElementById('prevBtn'),
-                    nextBtn: document.getElementById('nextBtn'),
-                    progressFill: document.getElementById('progressFill'),
-                    progressBar: document.getElementById('progressBar'),
-                    currentTime: document.getElementById('currentTime'),
-                    totalTime: document.getElementById('totalTime'),
-                    volumeControl: document.getElementById('volumeControl'),
-                    currentTitle: document.getElementById('currentSongTitle'),
-                    currentArtist: document.getElementById('currentSongArtist'),
-                    favoriteBtn: document.getElementById('favoriteBtn'),
-                    likeBtn: document.getElementById('likeBtn'),
-                    shuffleBtn: document.getElementById('shuffleBtn'),
-                    repeatBtn: document.getElementById('repeatBtn'),
-                    themeBtn: document.getElementById('themeBtn'),
-                    albumArt: document.getElementById('albumArt'),
-                    albumImage: document.getElementById('albumImage'),
-                    waves: document.querySelectorAll('.wave'),
-                    modalOverlay: document.getElementById('modalOverlay'),
-                    modalPlaylist: document.getElementById('modalPlaylist'),
-                    openPlaylistBtn: document.getElementById('openPlaylistBtn'),
-                    closeModalBtn: document.getElementById('closeModalBtn'),
-                    playlistBadge: document.getElementById('playlistBadge'),
-                    storageInfo: document.getElementById('storageInfo'),
-                    importBtn: document.getElementById('importBtn'),
-                    fileInput: document.getElementById('fileInput'),
-                    toast: document.getElementById('toast'),
-                    offlineBadge: document.getElementById('offlineBadge'),
-                    updateBtn: document.getElementById('updateBtn'),
-                    updateBadge: document.getElementById('updateBadge')
-                };
-            }
-
-            initEventListeners() {
-                this.dom.playBtn.addEventListener('click', () => this.togglePlay());
-                this.dom.prevBtn.addEventListener('click', () => this.prevSong());
-                this.dom.nextBtn.addEventListener('click', () => this.nextSong());
-                
-                this.dom.favoriteBtn.addEventListener('click', () => this.toggleFavorite());
-                this.dom.likeBtn.addEventListener('click', () => this.toggleFavorite());
-                
-                this.dom.shuffleBtn.addEventListener('click', () => this.toggleShuffle());
-                this.dom.repeatBtn.addEventListener('click', () => this.toggleRepeat());
-                this.dom.themeBtn.addEventListener('click', () => this.toggleTheme());
-                
-                this.dom.volumeControl.addEventListener('input', (e) => {
-                    this.audio.volume = parseFloat(e.target.value);
-                });
-                
-                this.audio.addEventListener('timeupdate', () => this.updateProgress());
-                this.dom.progressBar.addEventListener('mousedown', (e) => this.startDrag(e));
-                this.dom.progressBar.addEventListener('touchstart', (e) => this.startDrag(e));
-                document.addEventListener('mousemove', (e) => this.drag(e));
-                document.addEventListener('touchmove', (e) => this.drag(e));
-                document.addEventListener('mouseup', () => this.endDrag());
-                document.addEventListener('touchend', () => this.endDrag());
-                
-                this.audio.addEventListener('ended', () => this.onEnded());
-                this.audio.addEventListener('error', () => this.onError());
-                
-                document.addEventListener('keydown', (e) => this.onKeyDown(e));
-                
-                this.dom.openPlaylistBtn.addEventListener('click', () => this.openModal());
-                this.dom.closeModalBtn.addEventListener('click', () => this.closeModal());
-                this.dom.modalOverlay.addEventListener('click', (e) => {
-                    if (e.target === this.dom.modalOverlay) this.closeModal();
-                });
-                
-                this.dom.importBtn.addEventListener('click', () => {
-                    this.dom.fileInput.click();
-                });
-                this.dom.fileInput.addEventListener('change', (e) => this.importFiles(e));
-                
-                // 👇 NUEVO: Botón de actualizar
-                this.dom.updateBtn.addEventListener('click', () => this.updateLibrary());
-                
-                window.addEventListener('online', () => this.updateOfflineStatus());
-                window.addEventListener('offline', () => this.updateOfflineStatus());
-                
-                this.updateOfflineStatus();
-            }
-
-            // ============================================
-            // 🚀 INICIALIZAR APP
-            // ============================================
-            async initApp() {
-                if (this.isLoading) return;
-                this.isLoading = true;
-                
+        async loadPrecargedSongs() {
+            let loaded=0, failed=0;
+            const total=TODAS.length;
+            for(const song of TODAS) {
                 try {
-                    await this.db.init();
-                    
-                    const count = await this.db.getSongCount();
-                    console.log(`📊 Canciones en DB: ${count}`);
-                    
-                    if (count === 0) {
-                        this.dom.currentTitle.textContent = '📂 Cargando biblioteca...';
-                        this.showToast('📂 Cargando canciones...');
-                        await this.loadPrecargedSongs();
-                    } else {
-                        console.log('✅ Usando canciones existentes en la DB');
-                        this.showToast(`📋 ${count} canciones cargadas`);
-                    }
-                    
-                    await this.loadPlaylist();
-                    this.isLoaded = true;
-                    
-                    // Actualizar badge de actualización
-                    this.checkForUpdates();
-                    
-                } catch (error) {
-                    console.error('❌ Error inicializando:', error);
-                    this.showToast('❌ Error al cargar la biblioteca', false);
-                } finally {
-                    this.isLoading = false;
-                }
+                    const resp=await fetch(song.url);
+                    if(!resp.ok){ failed++; continue; }
+                    const blob=await resp.blob();
+                    await this.db.addSong({
+                        fileName:song.title+'.mp3',
+                        title:song.title,
+                        blob:blob,
+                        liked:false,
+                        category: CRISTIANS.some(c=>c.title===song.title) ? 'cristiana' : 'propia',
+                        dateAdded:new Date().toISOString()
+                    });
+                    loaded++;
+                } catch(e){ failed++; }
             }
+            this.showToast('check',`${loaded} de ${total} canciones cargadas${failed>0?` (${failed} fallaron)`:''}`);
+        }
 
-            // ============================================
-            // 🔄 ACTUALIZAR BIBLIOTECA (NUEVO)
-            // ============================================
-            async updateLibrary() {
-                if (this.isUpdating) return;
-                if (!navigator.onLine) {
-                    this.showToast('📡 Sin conexión, no se puede actualizar', false);
-                    return;
-                }
-
-                this.isUpdating = true;
-                this.dom.updateBtn.disabled = true;
-                this.dom.updateBtn.innerHTML = '<span class="spinner"></span> Actualizando...';
-
-                try {
-                    // Obtener lista actual de la DB
-                    const currentSongs = await this.db.getAllSongs();
-                    const currentTitles = new Set(currentSongs.map(s => s.title));
-                    
-                    let newSongs = 0;
-                    let alreadyExist = 0;
-                    let failed = 0;
-
-                    // Verificar cada canción de la lista precargada
-                    for (const song of PRECARGED_SONGS) {
-                        if (currentTitles.has(song.title)) {
-                            alreadyExist++;
-                            continue;
-                        }
-
-                        try {
-                            console.log(`⬇️ Descargando nueva: ${song.title}...`);
-                            const response = await fetch(song.url);
-                            if (!response.ok) {
-                                console.warn(`⚠️ No se pudo descargar: ${song.title}`);
-                                failed++;
-                                continue;
-                            }
-                            
-                            const blob = await response.blob();
-                            const songData = {
-                                fileName: song.title + '.mp3',
-                                title: song.title,
-                                blob: blob,
-                                liked: false,
-                                dateAdded: new Date().toISOString()
-                            };
-                            
-                            await this.db.addSong(songData);
-                            newSongs++;
-                            console.log(`✅ Nueva canción agregada: ${song.title}`);
-                        } catch (error) {
-                            console.warn(`⚠️ Error con ${song.title}:`, error);
-                            failed++;
-                        }
-                    }
-
-                    // Recargar playlist
-                    await this.loadPlaylist();
-                    
-                    // Mostrar resultado
-                    let msg = `✅ Actualización completa`;
-                    if (newSongs > 0) msg += `: ${newSongs} canciones nuevas`;
-                    if (alreadyExist > 0) msg += `, ${alreadyExist} ya existían`;
-                    if (failed > 0) msg += `, ${failed} fallaron`;
-                    this.showToast(msg);
-                    
-                    // Actualizar badge
-                    this.dom.updateBadge.textContent = '0';
-
-                } catch (error) {
-                    console.error('❌ Error actualizando:', error);
-                    this.showToast('❌ Error al actualizar la biblioteca', false);
-                } finally {
-                    this.isUpdating = false;
-                    this.dom.updateBtn.disabled = false;
-                    this.dom.updateBtn.innerHTML = '🔄 Actualizar <span class="badge" id="updateBadge">0</span>';
-                    // Reasignar referencia al badge
-                    this.dom.updateBadge = document.getElementById('updateBadge');
-                }
-            }
-
-            // ============================================
-            // 🔍 VERIFICAR ACTUALIZACIONES
-            // ============================================
-            async checkForUpdates() {
-                try {
-                    const currentSongs = await this.db.getAllSongs();
-                    const currentTitles = new Set(currentSongs.map(s => s.title));
-                    
-                    let missing = 0;
-                    for (const song of PRECARGED_SONGS) {
-                        if (!currentTitles.has(song.title)) {
-                            missing++;
-                        }
-                    }
-                    
-                    if (missing > 0) {
-                        this.dom.updateBadge.textContent = missing;
-                        this.dom.updateBadge.style.display = 'flex';
-                        this.showToast(`🔄 ${missing} canciones nuevas disponibles`);
-                    } else {
-                        this.dom.updateBadge.textContent = '0';
-                        this.dom.updateBadge.style.display = 'none';
-                    }
-                } catch (error) {
-                    console.error('Error verificando actualizaciones:', error);
-                }
-            }
-
-            // ============================================
-            // 📂 CARGAR CANCIONES PRECARGADAS
-            // ============================================
-            async loadPrecargedSongs() {
-                let loaded = 0;
-                let failed = 0;
-                let total = PRECARGED_SONGS.length;
-
-                for (const song of PRECARGED_SONGS) {
-                    try {
-                        console.log(`⬇️ Descargando: ${song.title}...`);
-                        const response = await fetch(song.url);
-                        if (!response.ok) {
-                            console.warn(`⚠️ No se pudo cargar: ${song.title} (${response.status})`);
-                            failed++;
-                            continue;
-                        }
-                        
-                        const blob = await response.blob();
-                        const songData = {
-                            fileName: song.title + '.mp3',
-                            title: song.title,
-                            blob: blob,
-                            liked: false,
-                            dateAdded: new Date().toISOString()
-                        };
-                        
-                        await this.db.addSong(songData);
-                        loaded++;
-                        console.log(`✅ Cargada: ${song.title} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
-                    } catch (error) {
-                        console.warn(`⚠️ Error cargando ${song.title}:`, error);
-                        failed++;
+        async loadPlaylist() {
+            try {
+                this.allSongs=await this.db.getAllSongs();
+                const categoryByTitle=new Map(TODAS.map(s=>[s.title, CRISTIANS.some(c=>c.title===s.title)?'cristiana':'propia']));
+                for(const s of this.allSongs) {
+                    const correct=categoryByTitle.get(s.title)||s.category||'propia';
+                    if(s.category!==correct) {
+                        s.category=correct;
+                        this.db.updateSong(s.id,s).catch(()=>{});
                     }
                 }
-                
-                const msg = `✅ ${loaded} de ${total} canciones cargadas${failed > 0 ? ` (${failed} fallaron)` : ''}`;
-                this.showToast(msg);
-                console.log(`📊 Resumen: ${loaded} cargadas, ${failed} fallaron`);
+                this.applyMode(this.currentMode,false);
+                this.updatePlaylistUI();
+                this.updateStorageInfo();
+                if(this.playlist.length>0) {
+                    this.currentIndex=0;
+                    await this.loadSong(this.currentIndex);
+                } else {
+                    this.dom.currentTitle.textContent='Sin canciones disponibles';
+                    this.dom.currentArtist.textContent='Conéctate y toca "Actualizar" para descargarlas';
+                }
+                this.checkForUpdates();
+            } catch(e) { console.error(e); this.showToast('x','Error al cargar la biblioteca'); }
+        }
+
+        applyMode(mode, resetIndex=true) {
+            this.currentMode=mode;
+            if(mode==='christian') {
+                this.playlist=this.allSongs.filter(s=>s.category==='cristiana');
+            } else if(mode==='own') {
+                this.playlist=this.allSongs.filter(s=>s.category==='propia');
+            } else {
+                this.playlist=this.allSongs.slice();
             }
+            if(resetIndex) this.currentIndex=0;
+            const order=['all','christian','own'];
+            const idx=order.indexOf(mode);
+            this.dom.modeIndicator.style.transform=`translateX(${idx*100}%)`;
+            this.dom.modeBtns.forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===mode));
+        }
 
-            // ============================================
-            // 📂 IMPORTAR ARCHIVOS
-            // ============================================
-            async importFiles(event) {
-                const files = event.target.files;
-                if (!files.length) return;
-
-                this.showToast(`📂 Importando ${files.length} archivos...`);
-
-                try {
-                    let imported = 0;
-                    for (const file of files) {
-                        if (!file.type.includes('mp3') && !file.name.endsWith('.mp3')) {
-                            this.showToast(`⚠️ ${file.name} no es MP3`, false);
-                            continue;
-                        }
-
-                        const blob = await this.fileToBlob(file);
-                        const songData = {
-                            fileName: file.name,
-                            title: file.name.replace('.mp3', '').replace(/_/g, ' '),
-                            blob: blob,
-                            liked: false,
-                            dateAdded: new Date().toISOString()
-                        };
-
-                        await this.db.addSong(songData);
-                        imported++;
-                    }
-
-                    this.showToast(`✅ ${imported} canciones importadas`);
-                    await this.loadPlaylist();
-                    
-                } catch (error) {
-                    console.error('Error importando:', error);
-                    this.showToast('❌ Error al importar archivos', false);
-                }
-
-                this.dom.fileInput.value = '';
+        playMode(mode) {
+            this.applyMode(mode,true);
+            if(this.playlist.length===0) {
+                const label=mode==='christian'?'música cristiana':mode==='own'?'tus canciones':'canciones';
+                this.showToast('x',`No hay ${label} en la biblioteca todavía`);
+                return;
             }
+            this.loadSong(this.currentIndex);
+            this.isPlaying=true;
+            this.audio.play().catch(()=>{ this.showToast('x','No se puede reproducir'); this.isPlaying=false; });
+            this.dom.playBtn.innerHTML=icon('pause');
+            this.dom.playBtn.classList.add('is-playing');
+            this.updateWaves(true);
+            this.dom.albumArt.classList.add('spinning');
+            this.updatePlaylistUI();
+        }
 
-            fileToBlob(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const blob = new Blob([e.target.result], { type: 'audio/mpeg' });
-                        resolve(blob);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsArrayBuffer(file);
-                });
+        async loadSong(index) {
+            const song=this.playlist[index];
+            if(!song) return;
+            try {
+                const url=URL.createObjectURL(song.blob);
+                this.audio.src=url;
+                this.audio.load();
+                this.dom.currentTitle.textContent=song.title||song.fileName;
+                const catTag=song.category==='cristiana'
+                    ? `<span class="tag christian">${icon('cross')} Cristiana</span>`
+                    : `<span class="tag own">${icon('user')} Mía</span>`;
+                this.dom.currentArtist.innerHTML=`${index+1} de ${this.playlist.length} ${catTag}`;
+                this.currentSongLiked=song.liked||false;
+                this.updateFavoriteUI();
+                // Cambiar imagen de portada por una random al cambiar de canción
+                this.portadaActual = getRandomPortada();
+                this.dom.albumImage.src = this.portadaActual;
+                this.updateWaves(false);
+                this.updatePlaylistUI();
+                if(this.isPlaying) {
+                    this.audio.play().catch(()=>{
+                        this.showToast('x','Error al reproducir');
+                        this.isPlaying=false;
+                        this.dom.playBtn.innerHTML=icon('play');
+                        this.dom.playBtn.classList.remove('is-playing');
+                    });
+                }
+            } catch(e) { console.error(e); this.showToast('x','Error al cargar la canción'); }
+        }
+
+        togglePlay() {
+            if(!this.playlist.length) { this.showToast('x','No hay canciones'); return; }
+            if(this.audio.src===''||this.audio.src==='about:blank') {
+                this.loadSong(this.currentIndex);
+                setTimeout(()=>this.togglePlay(),300);
+                return;
             }
-
-            // ============================================
-            // 💾 CARGAR PLAYLIST
-            // ============================================
-            async loadPlaylist() {
-                try {
-                    this.playlist = await this.db.getAllSongs();
-                    console.log(`🎵 Playlist cargada: ${this.playlist.length} canciones`);
-                    
-                    this.updatePlaylistUI();
-                    this.updateStorageInfo();
-                    
-                    if (this.playlist.length > 0) {
-                        this.currentIndex = 0;
-                        await this.loadSong(0);
-                    } else {
-                        this.dom.currentTitle.textContent = '🎵 Importa tu música';
-                        this.dom.currentArtist.textContent = 'Toca "Importar MP3" para comenzar';
-                        this.dom.albumImage.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect width="400" height="400" fill="%236C3CE1"/%3E%3Ctext x="200" y="200" text-anchor="middle" dy=".3em" fill="white" font-size="100" font-family="sans-serif"%3E🎵%3C/text%3E%3C/svg%3E';
-                    }
-                    
-                    // Verificar actualizaciones después de cargar
-                    this.checkForUpdates();
-                    
-                } catch (error) {
-                    console.error('Error cargando playlist:', error);
-                    this.showToast('❌ Error al cargar la biblioteca', false);
-                }
+            if(this.isPlaying) {
+                this.audio.pause();
+                this.dom.playBtn.innerHTML=icon('play');
+                this.dom.playBtn.classList.remove('is-playing');
+                this.isPlaying=false;
+                this.updateWaves(false);
+                this.dom.albumArt.classList.remove('spinning');
+            } else {
+                this.audio.play().catch(()=>this.showToast('x','No se puede reproducir'));
+                this.dom.playBtn.innerHTML=icon('pause');
+                this.dom.playBtn.classList.add('is-playing');
+                this.isPlaying=true;
+                this.updateWaves(true);
+                this.dom.albumArt.classList.add('spinning');
             }
+            this.updatePlaylistUI();
+        }
 
-            // ============================================
-            // 🎵 CARGAR CANCIÓN
-            // ============================================
-            async loadSong(index) {
-                const song = this.playlist[index];
-                if (!song) {
-                    console.warn(`⚠️ No hay canción en índice ${index}`);
-                    return;
-                }
-
-                try {
-                    const url = URL.createObjectURL(song.blob);
-                    this.audio.src = url;
-                    this.audio.load();
-
-                    this.dom.currentTitle.textContent = song.title || song.fileName;
-                    this.dom.currentArtist.textContent = `${index + 1} de ${this.playlist.length}`;
-
-                    this.currentSongLiked = song.liked || false;
-                    this.updateFavoriteUI();
-
-                    const initials = song.title ? song.title.substring(0, 2).toUpperCase() : '🎵';
-                    this.dom.albumImage.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect width="400" height="400" fill="%236C3CE1"/%3E%3Ctext x="200" y="200" text-anchor="middle" dy=".3em" fill="white" font-size="80" font-family="sans-serif"%3E${initials}%3C/text%3E%3C/svg%3E`;
-
-                    this.updateWaves(false);
-                    this.updatePlaylistUI();
-
-                    if (this.isPlaying) {
-                        this.audio.play().catch(() => {
-                            this.showToast('❌ Error al reproducir', false);
-                            this.isPlaying = false;
-                            this.dom.playBtn.textContent = '▶';
-                        });
-                    }
-
-                } catch (error) {
-                    console.error('Error cargando canción:', error);
-                    this.showToast('❌ Error al cargar la canción', false);
-                }
+        prevSong() {
+            if(!this.playlist.length) return;
+            if(this.isShuffle && this.shuffleHistory.length>0) {
+                this.currentIndex=this.shuffleHistory.pop()||0;
+            } else {
+                this.currentIndex=(this.currentIndex-1+this.playlist.length)%this.playlist.length;
             }
+            this.loadSong(this.currentIndex);
+            if(this.isPlaying) this.audio.play().catch(()=>{});
+            this.updatePlaylistUI();
+        }
 
-            // ============================================
-            // 🎮 CONTROLES
-            // ============================================
-            togglePlay() {
-                if (!this.playlist.length) {
-                    this.showToast('📂 Importa canciones primero', false);
-                    return;
-                }
+        nextSong() {
+            if(!this.playlist.length) return;
+            if(this.isShuffle) {
+                let next;
+                do { next=Math.floor(Math.random()*this.playlist.length); } while(next===this.currentIndex && this.playlist.length>1);
+                this.shuffleHistory.push(this.currentIndex);
+                this.currentIndex=next;
+            } else {
+                this.currentIndex=(this.currentIndex+1)%this.playlist.length;
+            }
+            this.loadSong(this.currentIndex);
+            if(this.isPlaying) this.audio.play().catch(()=>{});
+            this.updatePlaylistUI();
+        }
 
-                if (this.audio.src === '' || this.audio.src === 'about:blank') {
-                    this.loadSong(this.currentIndex);
-                    setTimeout(() => this.togglePlay(), 300);
-                    return;
-                }
+        onEnded() {
+            if(this.isRepeat) {
+                this.audio.currentTime=0;
+                this.audio.play().catch(()=>{});
+                this.showToast('repeat','Repitiendo canción');
+            } else {
+                this.nextSong();
+            }
+        }
+        onError() { this.showToast('x','Error al reproducir la canción'); }
 
-                if (this.isPlaying) {
-                    this.audio.pause();
-                    this.dom.playBtn.textContent = '▶';
-                    this.isPlaying = false;
+        toggleFavorite() {
+            if(!this.playlist.length||!this.playlist[this.currentIndex]) return;
+            const song=this.playlist[this.currentIndex];
+            song.liked=!song.liked;
+            this.currentSongLiked=song.liked;
+            const ref=this.allSongs.find(s=>s.id===song.id);
+            if(ref) ref.liked=song.liked;
+            this.db.updateSong(song.id,song).catch(err=>console.error(err));
+            this.updateFavoriteUI();
+            this.updatePlaylistUI();
+            this.showToast('heart',song.liked?'Agregado a favoritos':'Eliminado de favoritos');
+        }
+        updateFavoriteUI() {
+            const cls=this.currentSongLiked?'icon-filled':'';
+            this.dom.favoriteBtn.innerHTML=icon('heart',cls);
+            this.dom.favoriteBtn.classList.toggle('liked',this.currentSongLiked);
+            this.dom.likeBtn.innerHTML=icon('heart',cls);
+            this.dom.likeBtn.classList.toggle('is-active',this.currentSongLiked);
+        }
+
+        async deleteSong(songId) {
+            const song=this.allSongs.find(s=>s.id===songId);
+            if(!song) return;
+            if(!confirm(`¿Eliminar "${song.title}" de la biblioteca?`)) return;
+            try {
+                await this.db.deleteSong(song.id);
+                const wasCurrent=this.playlist[this.currentIndex]&&this.playlist[this.currentIndex].id===songId;
+                this.allSongs=this.allSongs.filter(s=>s.id!==songId);
+                this.applyMode(this.currentMode,false);
+                this.playlist=this.playlist.filter(s=>s.id!==songId);
+                if(this.playlist.length===0) {
+                    this.currentIndex=0;
+                    this.audio.src='';
+                    this.dom.currentTitle.textContent='Sin canciones disponibles';
+                    this.dom.currentArtist.textContent='Conéctate y toca "Actualizar" para descargarlas';
+                    this.dom.playBtn.innerHTML=icon('play');
+                    this.dom.playBtn.classList.remove('is-playing');
+                    this.isPlaying=false;
                     this.updateWaves(false);
                     this.dom.albumArt.classList.remove('spinning');
-                } else {
-                    this.audio.play().catch(() => {
-                        this.showToast('❌ No se puede reproducir', false);
-                    });
-                    this.dom.playBtn.textContent = '⏸';
-                    this.isPlaying = true;
-                    this.updateWaves(true);
-                    this.dom.albumArt.classList.add('spinning');
+                } else if(wasCurrent) {
+                    this.currentIndex=Math.min(this.currentIndex,this.playlist.length-1);
+                    await this.loadSong(this.currentIndex);
                 }
                 this.updatePlaylistUI();
-            }
+                this.updateStorageInfo();
+                this.showToast('trash',`"${song.title}" eliminada`);
+            } catch(e) { console.error(e); this.showToast('x','Error al eliminar'); }
+        }
 
-            prevSong() {
-                if (!this.playlist.length) return;
-                
-                if (this.isShuffle && this.shuffleHistory.length > 0) {
-                    this.currentIndex = this.shuffleHistory.pop() || 0;
-                } else {
-                    this.currentIndex = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
-                }
-                this.loadSong(this.currentIndex);
-                if (this.isPlaying) {
-                    this.audio.play().catch(() => {});
-                }
-                this.updatePlaylistUI();
-            }
-
-            nextSong() {
-                if (!this.playlist.length) return;
-                
-                if (this.isShuffle) {
-                    let next;
-                    do {
-                        next = Math.floor(Math.random() * this.playlist.length);
-                    } while (next === this.currentIndex && this.playlist.length > 1);
-                    this.shuffleHistory.push(this.currentIndex);
-                    this.currentIndex = next;
-                } else {
-                    this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
-                }
-                this.loadSong(this.currentIndex);
-                if (this.isPlaying) {
-                    this.audio.play().catch(() => {});
-                }
-                this.updatePlaylistUI();
-            }
-
-            onEnded() {
-                if (this.isRepeat) {
-                    this.audio.currentTime = 0;
-                    this.audio.play().catch(() => {});
-                    this.showToast('🔁 Repitiendo canción');
-                } else {
-                    this.nextSong();
-                }
-            }
-
-            onError() {
-                this.showToast('❌ Error al reproducir la canción', false);
-            }
-
-            // ============================================
-            // ⭐ FAVORITOS
-            // ============================================
-            toggleFavorite() {
-                if (!this.playlist.length || !this.playlist[this.currentIndex]) return;
-                
-                const song = this.playlist[this.currentIndex];
-                song.liked = !song.liked;
-                this.currentSongLiked = song.liked;
-                
-                this.db.updateSong(song.id, song).catch(err => {
-                    console.error('Error actualizando favorito:', err);
-                });
-                
-                this.updateFavoriteUI();
-                this.updatePlaylistUI();
-                this.showToast(song.liked ? '⭐ Agregado a favoritos' : '💔 Eliminado de favoritos');
-            }
-
-            updateFavoriteUI() {
-                const icon = this.currentSongLiked ? '❤️' : '🤍';
-                this.dom.favoriteBtn.textContent = icon;
-                this.dom.favoriteBtn.style.color = this.currentSongLiked ? '#FF6B6B' : '';
-                this.dom.likeBtn.textContent = icon;
-                this.dom.likeBtn.style.color = this.currentSongLiked ? '#FF6B6B' : '';
-            }
-
-            // ============================================
-            // 🗑️ ELIMINAR CANCIÓN
-            // ============================================
-            async deleteSong(index) {
-                const song = this.playlist[index];
-                if (!song) return;
-
-                if (!confirm(`¿Eliminar "${song.title}" de la biblioteca?`)) return;
-
-                try {
-                    await this.db.deleteSong(song.id);
-                    this.playlist.splice(index, 1);
-                    
-                    if (this.playlist.length === 0) {
-                        this.currentIndex = 0;
-                        this.audio.src = '';
-                        this.dom.currentTitle.textContent = '🎵 Importa tu música';
-                        this.dom.currentArtist.textContent = 'Toca "Importar MP3" para comenzar';
-                        this.dom.playBtn.textContent = '▶';
-                        this.isPlaying = false;
-                        this.updateWaves(false);
-                        this.dom.albumArt.classList.remove('spinning');
-                    } else if (index <= this.currentIndex) {
-                        this.currentIndex = Math.max(0, this.currentIndex - 1);
-                        await this.loadSong(this.currentIndex);
-                    }
-                    
-                    this.updatePlaylistUI();
-                    this.updateStorageInfo();
-                    this.showToast(`🗑️ "${song.title}" eliminada`);
-                } catch (error) {
-                    console.error('Error eliminando:', error);
-                    this.showToast('❌ Error al eliminar la canción', false);
-                }
-            }
-
-            // ============================================
-            // 🔀 MODOS
-            // ============================================
-            toggleShuffle() {
-                this.isShuffle = !this.isShuffle;
-                this.dom.shuffleBtn.classList.toggle('active-shuffle', this.isShuffle);
-                this.dom.shuffleBtn.style.color = this.isShuffle ? '#FF6B6B' : '';
-                this.showToast(this.isShuffle ? '🔀 Aleatorio activado' : '🔀 Aleatorio desactivado');
-                if (this.isShuffle) this.shuffleHistory = [];
-            }
-
-            toggleRepeat() {
-                this.isRepeat = !this.isRepeat;
-                this.dom.repeatBtn.classList.toggle('active', this.isRepeat);
-                this.showToast(this.isRepeat ? '🔁 Repetir activado' : '🔁 Repetir desactivado');
-            }
-
-            toggleTheme() {
-                const isDark = document.documentElement.style.getPropertyValue('--bg-start') === '#0f0c29';
-                const root = document.documentElement;
-                
-                if (isDark) {
-                    root.style.setProperty('--bg-start', '#f5f3ff');
-                    root.style.setProperty('--bg-mid', '#ede9fe');
-                    root.style.setProperty('--bg-end', '#ddd6fe');
-                    root.style.setProperty('--text-primary', '#1a1a2e');
-                    root.style.setProperty('--text-secondary', '#4a4a6a');
-                    root.style.setProperty('--card-bg', 'rgba(255,255,255,0.7)');
-                    this.dom.themeBtn.textContent = '☀️';
-                    this.showToast('☀️ Modo claro');
-                } else {
-                    root.style.setProperty('--bg-start', '#0f0c29');
-                    root.style.setProperty('--bg-mid', '#302b63');
-                    root.style.setProperty('--bg-end', '#24243e');
-                    root.style.setProperty('--text-primary', '#FFFFFF');
-                    root.style.setProperty('--text-secondary', '#B0B0B0');
-                    root.style.setProperty('--card-bg', 'rgba(255,255,255,0.06)');
-                    this.dom.themeBtn.textContent = '🌙';
-                    this.showToast('🌙 Modo oscuro');
-                }
-            }
-
-            // ============================================
-            // 📊 PROGRESO
-            // ============================================
-            updateProgress() {
-                if (!this.isDragging && this.audio.duration) {
-                    const p = (this.audio.currentTime / this.audio.duration) * 100;
-                    this.dom.progressFill.style.width = `${p}%`;
-                    this.dom.currentTime.textContent = this.formatTime(this.audio.currentTime);
-                    this.dom.totalTime.textContent = this.formatTime(this.audio.duration);
-                }
-            }
-
-            startDrag(e) {
-                if (!this.audio.duration) return;
-                this.isDragging = true;
-                const rect = this.dom.progressBar.getBoundingClientRect();
-                const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-                const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                this.audio.currentTime = x * this.audio.duration;
-                this.dom.progressFill.style.width = `${x * 100}%`;
-            }
-
-            drag(e) {
-                if (!this.isDragging || !this.audio.duration) return;
-                const rect = this.dom.progressBar.getBoundingClientRect();
-                const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-                let x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                this.audio.currentTime = x * this.audio.duration;
-                this.dom.progressFill.style.width = `${x * 100}%`;
-                this.dom.currentTime.textContent = this.formatTime(this.audio.currentTime);
-            }
-
-            endDrag() {
-                this.isDragging = false;
-            }
-
-            // ============================================
-            // 🌊 ONDAS
-            // ============================================
-            updateWaves(active) {
-                this.dom.waves.forEach(w => {
-                    if (active) {
-                        w.classList.add('active');
-                    } else {
-                        w.classList.remove('active');
-                    }
-                });
-            }
-
-            // ============================================
-            // 📋 PLAYLIST UI
-            // ============================================
-            updatePlaylistUI() {
-                this.dom.modalPlaylist.innerHTML = '';
-                
-                if (this.playlist.length === 0) {
-                    this.dom.modalPlaylist.innerHTML = `
-                        <div class="modal-empty">
-                            <span class="big-icon">📂</span>
-                            No hay canciones en tu biblioteca
-                            <div class="sub">Toca "Importar MP3" para agregar música</div>
-                        </div>
-                    `;
-                    this.dom.playlistBadge.textContent = '0';
-                    return;
-                }
-
-                console.log(`🎵 Mostrando ${this.playlist.length} canciones en la lista`);
-
-                this.playlist.forEach((song, i) => {
-                    const div = document.createElement('div');
-                    div.className = `modal-item ${i === this.currentIndex ? 'active' : ''}`;
-                    div.innerHTML = `
-                        <span class="num">${String(i + 1).padStart(2, '0')}</span>
-                        <div class="info">
-                            <div class="title">${song.title || song.fileName}</div>
-                            <div class="sub">${song.liked ? '⭐ Favorita' : ''} ${this.formatSize(song.blob.size)}</div>
-                        </div>
-                        ${i === this.currentIndex && this.isPlaying ? '<span class="status-icon">▶</span>' : ''}
-                        <span class="fav-star ${song.liked ? 'favorited' : ''}">${song.liked ? '⭐' : ''}</span>
-                        <button class="delete-btn" data-index="${i}">🗑️</button>
-                    `;
-                    
-                    div.addEventListener('click', (e) => {
-                        if (e.target.classList.contains('delete-btn')) return;
-                        this.currentIndex = i;
-                        this.loadSong(i);
-                        if (!this.isPlaying) this.togglePlay();
-                        else this.audio.play().catch(() => {});
-                        this.closeModal();
-                    });
-
-                    const deleteBtn = div.querySelector('.delete-btn');
-                    deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.deleteSong(i);
-                    });
-
-                    this.dom.modalPlaylist.appendChild(div);
-                });
-
-                this.dom.playlistBadge.textContent = this.playlist.length;
-            }
-
-            // ============================================
-            // 💾 STORAGE INFO
-            // ============================================
-            async updateStorageInfo() {
-                try {
-                    const totalSize = await this.db.getTotalSize();
-                    const sizeStr = this.formatSize(totalSize);
-                    this.dom.storageInfo.textContent = `💾 ${this.playlist.length} canciones • ${sizeStr} usados`;
-                } catch (error) {
-                    console.error('Error calculando tamaño:', error);
-                }
-            }
-
-            formatSize(bytes) {
-                if (bytes < 1024) return `${bytes} B`;
-                if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-                if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
-                return `${(bytes / 1073741824).toFixed(1)} GB`;
-            }
-
-            formatTime(seconds) {
-                if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00';
-                const m = Math.floor(seconds / 60);
-                const s = Math.floor(seconds % 60);
-                return `${m}:${String(s).padStart(2, '0')}`;
-            }
-
-            // ============================================
-            // 🔔 TOAST
-            // ============================================
-            showToast(msg, isSuccess = true) {
-                this.dom.toast.textContent = msg;
-                this.dom.toast.classList.add('show');
-                clearTimeout(this.dom.toast._timeout);
-                this.dom.toast._timeout = setTimeout(() => {
-                    this.dom.toast.classList.remove('show');
-                }, 3000);
-            }
-
-            // ============================================
-            // 📶 OFFLINE STATUS
-            // ============================================
-            updateOfflineStatus() {
-                const isOnline = navigator.onLine;
-                if (!isOnline) {
-                    this.dom.offlineBadge.classList.add('show');
-                    this.dom.offlineBadge.textContent = '📡 Sin conexión - Modo offline';
-                } else {
-                    this.dom.offlineBadge.classList.remove('show');
-                }
-            }
-
-            // ============================================
-            // ⌨️ TECLADO
-            // ============================================
-            onKeyDown(e) {
-                if (e.target.tagName === 'INPUT') return;
-                if (e.key === ' ' || e.key === 'Space') { e.preventDefault(); this.togglePlay(); }
-                if (e.key === 'ArrowRight') this.nextSong();
-                if (e.key === 'ArrowLeft') this.prevSong();
-                if (e.key === 'Escape') this.closeModal();
-            }
-
-            // ============================================
-            // 📱 MODAL
-            // ============================================
-            openModal() {
-                this.dom.modalOverlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-
-            closeModal() {
-                this.dom.modalOverlay.classList.remove('show');
-                document.body.style.overflow = '';
+        toggleShuffle() {
+            this.isShuffle=!this.isShuffle;
+            this.dom.shuffleBtn.classList.toggle('is-active',this.isShuffle);
+            this.showToast('shuffle',this.isShuffle?'Aleatorio activado':'Aleatorio desactivado');
+            if(this.isShuffle) this.shuffleHistory=[];
+        }
+        toggleRepeat() {
+            this.isRepeat=!this.isRepeat;
+            this.dom.repeatBtn.classList.toggle('active',this.isRepeat);
+            this.showToast('repeat',this.isRepeat?'Repetir activado':'Repetir desactivado');
+        }
+        toggleTheme() {
+            const isDark=document.documentElement.style.getPropertyValue('--bg-start')!=='#f5f3ff';
+            const root=document.documentElement;
+            if(isDark) {
+                root.style.setProperty('--bg-start','#f5f3ff');
+                root.style.setProperty('--bg-mid','#ede9fe');
+                root.style.setProperty('--bg-end','#ddd6fe');
+                root.style.setProperty('--text-primary','#1a1a2e');
+                root.style.setProperty('--text-secondary','#5c5a7a');
+                root.style.setProperty('--card-bg','rgba(255,255,255,0.65)');
+                root.style.setProperty('--card-bg-strong','rgba(255,255,255,0.85)');
+                this.dom.themeBtn.innerHTML=icon('sun');
+                this.showToast('sun','Modo claro');
+            } else {
+                root.style.setProperty('--bg-start','#0b0918');
+                root.style.setProperty('--bg-mid','#1a1440');
+                root.style.setProperty('--bg-end','#140f2e');
+                root.style.setProperty('--text-primary','#FFFFFF');
+                root.style.setProperty('--text-secondary','#9C97B8');
+                root.style.setProperty('--card-bg','rgba(255,255,255,0.055)');
+                root.style.setProperty('--card-bg-strong','rgba(255,255,255,0.09)');
+                this.dom.themeBtn.innerHTML=icon('moon');
+                this.showToast('moon','Modo oscuro');
             }
         }
 
-        // ============================================
-        // 🚀 INICIALIZAR
-        // ============================================
-        console.log('🎵 Iniciando reproductor...');
-        console.log('📋 Canciones precargadas:', PRECARGED_SONGS.length);
-        
-        const player = new MusicPlayer();
-    </script>
+        updateProgress() {
+            if(!this.isDragging && this.audio.duration) {
+                const p=(this.audio.currentTime/this.audio.duration)*100;
+                this.dom.progressFill.style.width=`${p}%`;
+                this.dom.currentTime.textContent=this.formatTime(this.audio.currentTime);
+                this.dom.totalTime.textContent=this.formatTime(this.audio.duration);
+            }
+        }
+        startDrag(e) {
+            if(!this.audio.duration) return;
+            this.isDragging=true;
+            const rect=this.dom.progressBar.getBoundingClientRect();
+            const clientX=e.type==='touchstart'?e.touches[0].clientX:e.clientX;
+            const x=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width));
+            this.audio.currentTime=x*this.audio.duration;
+            this.dom.progressFill.style.width=`${x*100}%`;
+        }
+        drag(e) {
+            if(!this.isDragging||!this.audio.duration) return;
+            const rect=this.dom.progressBar.getBoundingClientRect();
+            const clientX=e.type==='touchmove'?e.touches[0].clientX:e.clientX;
+            let x=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width));
+            this.audio.currentTime=x*this.audio.duration;
+            this.dom.progressFill.style.width=`${x*100}%`;
+            this.dom.currentTime.textContent=this.formatTime(this.audio.currentTime);
+        }
+        endDrag() { this.isDragging=false; }
 
+        updateWaves(active) { this.dom.waves.forEach(w=>w.classList.toggle('active',active)); }
+
+        updatePlaylistUI() {
+            this.dom.modalPlaylist.innerHTML='';
+            if(this.allSongs.length===0) {
+                this.dom.modalPlaylist.innerHTML=`
+                    <div class="modal-empty">
+                        ${icon('folderPlus')}
+                        No hay canciones en tu biblioteca
+                        <div class="sub">Conéctate a internet y toca "Actualizar" para descargarlas</div>
+                    </div>
+                `;
+                const badge=document.getElementById('playlistBadge');
+                if(badge) badge.textContent='0';
+                return;
+            }
+            const currentSong=this.playlist[this.currentIndex];
+            this.allSongs.forEach((song)=>{
+                const isActive=currentSong&&song.id===currentSong.id;
+                const div=document.createElement('div');
+                div.className=`modal-item ${isActive?'active':''}`;
+                div.innerHTML=`
+                    <span class="cat-dot ${song.category==='cristiana'?'christian':'own'}"></span>
+                    <div class="info">
+                        <div class="title">${song.title||song.fileName}</div>
+                        <div class="sub">${song.category==='cristiana'?'Cristiana':'Mía'} · ${song.liked?'★ Favorita · ':''}${this.formatSize(song.blob.size)}</div>
+                    </div>
+                    ${isActive&&this.isPlaying?`<span class="status-icon">${icon('volume')}</span>`:''}
+                    <span class="fav-star ${song.liked?'favorited':''}">${icon('heart',song.liked?'icon-filled':'')}</span>
+                    <button class="delete-btn" data-id="${song.id}">${icon('trash')}</button>
+                `;
+                div.addEventListener('click',(e)=>{
+                    if(e.target.closest('.delete-btn')) return;
+                    this.applyMode('all',false);
+                    this.currentIndex=this.playlist.findIndex(s=>s.id===song.id);
+                    this.loadSong(this.currentIndex);
+                    this.isPlaying=true;
+                    this.audio.play().catch(()=>{});
+                    this.dom.playBtn.innerHTML=icon('pause');
+                    this.dom.playBtn.classList.add('is-playing');
+                    this.updateWaves(true);
+                    this.dom.albumArt.classList.add('spinning');
+                    this.updatePlaylistUI();
+                    this.closeModal();
+                });
+                const deleteBtn=div.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click',(e)=>{
+                    e.stopPropagation();
+                    this.deleteSong(song.id);
+                });
+                this.dom.modalPlaylist.appendChild(div);
+            });
+            const badge=document.getElementById('playlistBadge');
+            if(badge) badge.textContent=this.allSongs.length;
+        }
+
+        async updateStorageInfo() {
+            try {
+                const totalSize=await this.db.getTotalSize();
+                this.dom.storageInfo.innerHTML=`${icon('disc')} ${this.allSongs.length} canciones · ${this.formatSize(totalSize)} usados`;
+            } catch(e){ console.error(e); }
+        }
+
+        formatSize(bytes) {
+            if(bytes<1024) return `${bytes} B`;
+            if(bytes<1048576) return `${(bytes/1024).toFixed(1)} KB`;
+            if(bytes<1073741824) return `${(bytes/1048576).toFixed(1)} MB`;
+            return `${(bytes/1073741824).toFixed(1)} GB`;
+        }
+        formatTime(seconds) {
+            if(isNaN(seconds)||!isFinite(seconds)||seconds<0) return '0:00';
+            const m=Math.floor(seconds/60);
+            const s=Math.floor(seconds%60);
+            return `${m}:${String(s).padStart(2,'0')}`;
+        }
+
+        showToast(iconName,msg) {
+            this.dom.toast.innerHTML=`${icon(iconName||'check')}<span>${msg}</span>`;
+            this.dom.toast.classList.add('show');
+            clearTimeout(this.dom.toast._timeout);
+            this.dom.toast._timeout=setTimeout(()=>{ this.dom.toast.classList.remove('show'); },3000);
+        }
+        updateOfflineStatus() {
+            if(!navigator.onLine) this.dom.offlineBadge.classList.add('show');
+            else this.dom.offlineBadge.classList.remove('show');
+        }
+        onKeyDown(e) {
+            if(e.target.tagName==='INPUT') return;
+            if(e.key===' '||e.key==='Space'){ e.preventDefault(); this.togglePlay(); }
+            if(e.key==='ArrowRight') this.nextSong();
+            if(e.key==='ArrowLeft') this.prevSong();
+            if(e.key==='Escape') this.closeModal();
+        }
+        openModal() { this.updatePlaylistUI(); this.dom.modalOverlay.classList.add('show'); document.body.style.overflow='hidden'; }
+        closeModal() { this.dom.modalOverlay.classList.remove('show'); document.body.style.overflow=''; }
+    }
+
+    // ============================================
+    // INICIALIZAR
+    // ============================================
+    const player = new MusicPlayer();
+</script>
 </body>
 </html>
