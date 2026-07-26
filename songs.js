@@ -1,6 +1,5 @@
     const CRISTIANS = [
         { title: "Si tu voluntad duele", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Si%20tu%20voluntad%20duele.mp3" },
-        { title: "Contigo todo pesa menos", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Contigo%20todo%20pesa%20menos.mp3" },
         { title: "Nunca me dejarás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Nunca%20me%20dejar%C3%A1s.mp3" },
         { title: "Sorprendeme Dios", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Sorprendeme%20Dios.mp3" },
         { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
@@ -8,6 +7,7 @@
     ];
     const MIAS = [
         { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
+        { title: "Contigo todo pesa menos", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Contigo%20todo%20pesa%20menos.mp3" },
         { title: "EL QUE NO DUERME v2", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
         { title: "El desorden perfecto", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20desorden%20perfecto.mp3" },
         { title: "El reloj se para", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20reloj%20se%20para.mp3" },
