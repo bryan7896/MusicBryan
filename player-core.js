@@ -297,6 +297,7 @@ class MusicPlayer {
 
     updateSongUI(song, offline) {
         this.dom.currentTitle.textContent = song.title;
+        this.dom.favoriteBtn.style.visibility = CATS[song.category].noFavorite ? 'hidden' : 'visible';
         this.portadaActual = getRandomPortada();
         this.dom.albumImage.src = this.portadaActual;
         this.getStatsFor(song.key).then(st => this.updateFavoriteUI(st.liked));
@@ -328,6 +329,8 @@ class MusicPlayer {
 
     recordSwitchStats(audio, { skippedManually = false } = {}) {
         if (!audio || !audio._songKey || !audio.duration || audio._playCounted === false) return;
+        const song = findByKey(audio._songKey);
+        if (song && CATS[song.category].noStats) return;
         const key = audio._songKey;
         const ratio = audio.duration ? (audio.currentTime / audio.duration) : 0;
         this.getStatsFor(key).then(st => {
@@ -342,6 +345,7 @@ class MusicPlayer {
     }
 
     async registerPlayStart(song) {
+        if (CATS[song.category].noStats) return;
         const st = await this.getStatsFor(song.key);
         st.plays = (st.plays || 0) + 1;
         await this.saveStats(st);
@@ -389,7 +393,10 @@ class MusicPlayer {
         if (audio !== this.active) return;
         if (this.crossfading) return;
         if (this.isRepeat) {
-            this.getStatsFor(audio._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
+            const song = findByKey(audio._songKey);
+            if (!(song && CATS[song.category].noStats)) {
+                this.getStatsFor(audio._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
+            }
             audio.currentTime = 0;
             audio.play().catch(() => { });
             this.showToast('repeat', 'Repitiendo canción');
@@ -476,10 +483,13 @@ class MusicPlayer {
         const oldAudio = this.active;
         const newAudio = this.inactive;
         this.recordSwitchStats(oldAudio, { skippedManually: false });
-        this.getStatsFor(oldAudio._songKey).then(st => {
-            if (!st.completes) st.completes = 0;
-            if (!oldAudio._completeCounted) { st.completes += 1; oldAudio._completeCounted = true; this.saveStats(st); }
-        });
+        const oldSong = findByKey(oldAudio._songKey);
+        if (!(oldSong && CATS[oldSong.category].noStats)) {
+            this.getStatsFor(oldAudio._songKey).then(st => {
+                if (!st.completes) st.completes = 0;
+                if (!oldAudio._completeCounted) { st.completes += 1; oldAudio._completeCounted = true; this.saveStats(st); }
+            });
+        }
         oldAudio.pause();
         oldAudio.volume = 1;
         newAudio.volume = 1;
@@ -494,6 +504,7 @@ class MusicPlayer {
     toggleFavorite() {
         if (!this.playlist.length || !this.playlist[this.currentIndex]) return;
         const song = this.playlist[this.currentIndex];
+        if (CATS[song.category].noFavorite) return;
         this.getStatsFor(song.key).then(async st => {
             st.liked = !st.liked;
             await this.saveStats(st);
@@ -537,7 +548,10 @@ class MusicPlayer {
         this.dom.repeatBtn.classList.toggle('toggle-pressed', this.isRepeat);
         this.showToast('repeat', this.isRepeat ? 'Repetir activado' : 'Repetir desactivado');
         if (this.isRepeat && this.active._songKey) {
-            this.getStatsFor(this.active._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
+            const song = findByKey(this.active._songKey);
+            if (!(song && CATS[song.category].noStats)) {
+                this.getStatsFor(this.active._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
+            }
         }
     }
 

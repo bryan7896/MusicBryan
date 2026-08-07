@@ -58,7 +58,7 @@ Object.assign(MusicPlayer.prototype, {
             card.innerHTML = `
                 <span class="sc-icon">${icon(def.icon)}</span>
                 <span class="sc-title">${song.title}</span>
-                <button class="sc-mini-btn sc-like ${st.liked ? 'toggle-pressed' : ''}">${icon('heart', st.liked ? 'icon-filled' : '')}</button>
+                ${def.noFavorite ? '' : `<button class="sc-mini-btn sc-like ${st.liked ? 'toggle-pressed' : ''}">${icon('heart', st.liked ? 'icon-filled' : '')}</button>`}
                 <button class="sc-mini-btn sc-dl ${cached ? 'toggle-pressed' : ''}">${icon(cached ? 'check' : 'download')}</button>
             `;
             card.addEventListener('click', (e) => {
@@ -69,16 +69,18 @@ Object.assign(MusicPlayer.prototype, {
                 this.loadSong(this.currentIndex, { autoplay: true });
             });
             const likeBtn = card.querySelector('.sc-like');
-            likeBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                st.liked = !st.liked;
-                await this.saveStats(st);
-                likeBtn.classList.toggle('toggle-pressed', st.liked);
-                likeBtn.innerHTML = icon('heart', st.liked ? 'icon-filled' : '');
-                this.showToast('heart', st.liked ? 'Agregado a tu TOP' : 'Eliminado de favoritos');
-                if (st.liked && navigator.onLine) await this.ensureCached(song);
-                if (currentSong && song.key === currentSong.key) this.updateFavoriteUI(st.liked);
-            });
+            if (likeBtn) {
+                likeBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    st.liked = !st.liked;
+                    await this.saveStats(st);
+                    likeBtn.classList.toggle('toggle-pressed', st.liked);
+                    likeBtn.innerHTML = icon('heart', st.liked ? 'icon-filled' : '');
+                    this.showToast('heart', st.liked ? 'Agregado a tu TOP' : 'Eliminado de favoritos');
+                    if (st.liked && navigator.onLine) await this.ensureCached(song);
+                    if (currentSong && song.key === currentSong.key) this.updateFavoriteUI(st.liked);
+                })
+            }
             const dlBtn = card.querySelector('.sc-dl');
             dlBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();

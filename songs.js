@@ -1,3 +1,8 @@
+const DEVOCIONAL = [
+    { title: "devocionalHoy", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Devocionales/devocionalHoy.mp3" },
+    { title: "devocionalHoy2", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Devocionales/devocionalHoy2.mp3" },
+    { title: "devocionalHoy3", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Devocionales/devocionalHoy3.mp3" },
+];
 const CRISTIANS = [
     { title: "Si tu voluntad duele", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Si%20tu%20voluntad%20duele.mp3" },
     { title: "Nunca me dejarás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Nunca%20me%20dejar%C3%A1s.mp3" },

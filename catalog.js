@@ -2,9 +2,10 @@
 // CATÁLOGO — combina las listas de songs.js con sus categorías
 // ============================================
 const CATS = {
-    cristiana: { list: CRISTIANS, label: 'Cristiana', tag: 'christian', icon: 'cross', dotVar: '--accent' },
-    propia:    { list: MIAS,      label: 'Mías',      tag: 'own',       icon: 'user',  dotVar: '--accent-2' },
-    gym:       { list: GYM,       label: 'GYM',       tag: 'gym',       icon: 'flame', dotVar: '--gym' }
+    cristiana:  { list: CRISTIANS,  label: 'Cristiana',  tag: 'christian',  icon: 'cross', dotVar: '--accent' },
+    propia:     { list: MIAS,       label: 'Mías',       tag: 'own',        icon: 'user',  dotVar: '--accent-2' },
+    gym:        { list: GYM,        label: 'GYM',        tag: 'gym',        icon: 'flame', dotVar: '--gym' },
+    devocional: { list: DEVOCIONAL, label: 'Devocional', tag: 'devotional', icon: 'book',  dotVar: '--primary', noStats: true, noFavorite: true }
 };
 
 const CATALOG = [];

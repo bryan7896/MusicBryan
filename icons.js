@@ -28,6 +28,7 @@ const ICONS = {
     arrowLeft: '<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>',
     // Icono selector para el badge de categoría/mix
     selector: '<path d="M8 9l4-4 4 4"></path><path d="M16 15l-4 4-4-4"></path>',
+    book: '<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>',
 };
 
 function icon(name, extraClass) {
