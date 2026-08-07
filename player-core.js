@@ -132,9 +132,14 @@ class MusicPlayer {
                 this.currentIndex = 0;
                 await this.loadSong(this.currentIndex, { autoplay: false });
             } else {
-                this.dom.currentTitle.textContent = 'Sin canciones disponibles';
+                this.dom.currentTitle.textContent = 'Elige tu mix para comenzar';
             }
             this.setupMediaSession();
+
+            // Primera vez / sin Mix elegido todavía: forzar la selección
+            if (this.mixCategories.length === 0) {
+                this.openMixConfig();
+            }
         } catch (e) {
             console.error(e);
             this.showToast('x', 'Error al iniciar la app');
@@ -161,12 +166,19 @@ class MusicPlayer {
 
     // Reconstruye this.playlist según el pool activo (catálogo completo o solo
     // descargadas si downloadsMode está activo) y la selección de Mix vigente.
+    // Reconstruye this.playlist según el pool activo (catálogo completo o solo
+    // descargadas si downloadsMode está activo) y la selección de Mix vigente.
     rebuildPlaylistFromState() {
-        const pool = this.downloadsMode ? (this.downloadedCatalog || []) : CATALOG;
-        this.playlist = this.mixCategories.length > 0
-            ? pool.filter(s => this.mixCategories.includes(s.category))
-            : pool.slice();
+        this.playlist = this.getActivePool();
         this.currentIndex = 0;
+    }
+
+    // Devuelve las canciones disponibles según el Mix elegido (nunca "todo" por defecto).
+    getActivePool() {
+        const base = this.downloadsMode ? (this.downloadedCatalog || []) : CATALOG;
+        return this.mixCategories.length > 0
+            ? base.filter(s => this.mixCategories.includes(s.category))
+            : [];
     }
 
     // ---------- MODO DESCARGAS ----------
@@ -232,7 +244,7 @@ class MusicPlayer {
         if (tab === 'top') {
             songs = await this.getTopList();
         } else {
-            songs = this.downloadsMode ? (this.downloadedCatalog || []) : CATALOG;
+            songs = this.getActivePool();
         }
         await this.renderSongCards(this.dom.songListScroll, songs, {
             emptyMsg: tab === 'top'
@@ -379,7 +391,7 @@ class MusicPlayer {
         if (this.isRepeat) {
             this.getStatsFor(audio._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
             audio.currentTime = 0;
-            audio.play().catch(() => {});
+            audio.play().catch(() => { });
             this.showToast('repeat', 'Repitiendo canción');
             return;
         }
@@ -448,7 +460,7 @@ class MusicPlayer {
         target._skipCounted = false; target._completeCounted = false; target._playCounted = false;
         target.volume = 0;
         target.load();
-        target.play().catch(() => {});
+        target.play().catch(() => { });
     }
 
     stepCrossfade(remaining) {
@@ -676,6 +688,6 @@ class MusicPlayer {
                 album: CATS[song.category].label,
                 artwork: [{ src: this.portadaActual, sizes: '400x400', type: 'image/jpeg' }]
             });
-        } catch (e) {}
+        } catch (e) { }
     }
 }
