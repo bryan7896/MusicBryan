@@ -2,10 +2,11 @@
 // ICONOS SVG — todos los iconos de la app viven aquí
 // ============================================
 const ICONS = {
-    play: '<polygon points="6 3 20 12 6 21 6 3"></polygon>',
-    pause: '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>',
-    prev: '<polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line>',
-    next: '<polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line>',
+    play: '<polygon points="7 3 20 12 7 21 7 3"></polygon>',
+    pause: '<rect x="6" y="4" width="4" height="16" rx="1.5"></rect><rect x="14" y="4" width="4" height="16" rx="1.5"></rect>',
+    // Nuevos iconos anterior/siguiente: doble chevron, más limpios y modernos
+    prev: '<polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline>',
+    next: '<polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline>',
     shuffle: '<polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line>',
     repeat: '<polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path>',
     heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"></path>',
@@ -25,22 +26,10 @@ const ICONS = {
     trash: '<polyline points="4 7 20 7"></polyline><path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3m2 0-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
     lock: '<rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path>',
     arrowLeft: '<line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>',
-    note: '<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>',
-    circleDot: '<circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="1.5"></circle>',
-    blob: '<path d="M12 2c4 0 8 2.5 8 7s-2 6-4 8-4 3-8 2-6-4-6-8 2-5 4-7 3-2 6-2z"></path>',
+    // Icono selector para el badge de categoría/mix
+    selector: '<path d="M8 9l4-4 4 4"></path><path d="M16 15l-4 4-4-4"></path>',
 };
 
 function icon(name, extraClass) {
     return `<svg class="icon${extraClass ? ' ' + extraClass : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
-}
-
-// SVG completo para las figuritas decorativas del fondo (relleno, no lineal)
-function decorShape(name) {
-    const shapes = {
-        note: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13c0 1.7-1.3 3-3 3s-3-1.3-3-3 1.3-3 3-3c.3 0 .7 0 1 .1V7.5l-8 1.3V18c0 1.7-1.3 3-3 3s-3-1.3-3-3 1.3-3 3-3z"/></svg>',
-        blobA: '<svg viewBox="0 0 200 200" fill="currentColor"><path d="M42,-58C55,-49,66,-37,71,-23C76,-9,75,7,68,20C61,33,48,44,34,53C20,62,5,69,-11,71C-27,73,-45,70,-56,59C-67,48,-71,29,-73,10C-75,-9,-75,-29,-65,-43C-55,-57,-35,-65,-16,-67C3,-69,29,-67,42,-58Z" transform="translate(100 100)"/></svg>',
-        blobB: '<svg viewBox="0 0 200 200" fill="currentColor"><path d="M38,-52C49,-44,57,-32,62,-18C67,-4,69,12,63,25C57,38,44,48,30,55C16,62,1,66,-15,65C-31,64,-48,58,-58,46C-68,34,-72,17,-70,1C-68,-15,-60,-30,-49,-40C-38,-50,-24,-56,-9,-58C6,-60,26,-60,38,-52Z" transform="translate(100 100)"/></svg>',
-        ring: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/></svg>',
-    };
-    return shapes[name] || shapes.blobA;
 }

@@ -11,53 +11,45 @@ class MusicPlayer {
         this.crossfading = false;
         this.playlist = [];
         this.currentIndex = 0;
-        this.currentMode = 'mix';
         this.mixCategories = [];
         this.isPlaying = false;
         this.isShuffle = false;
         this.isRepeat = false;
         this.isDragging = false;
+        this.isListMode = false;
+        this.activeListTab = 'all';
+        this.downloadsMode = false;
+        this.downloadedCatalog = null;
         this.shuffleHistory = [];
         this.totalPlays = 0;
         this.topScored = [];
         this.statsCache = new Map();
         this.portadaActual = getRandomPortada();
-        this.modalView = 'library';
         this.renderStaticIcons();
         this.initDOM();
         this.initEventListeners();
         this.initApp();
+        buildFallingCircles(document.getElementById('fallingCircles'), CIRCLE_PALETTE_HOME, 16);
     }
 
     renderStaticIcons() {
         document.getElementById('offlineBadge').innerHTML = icon('wifiOff') + ' Sin conexión — usando lo guardado';
-        document.getElementById('logoIcon').innerHTML = icon('music');
-        document.getElementById('closeModalBtn').innerHTML = icon('x');
+        document.getElementById('openPlaylistBtn').innerHTML = icon('list');
+        document.getElementById('openDownloadsBtn').innerHTML = icon('download');
         document.getElementById('prevBtn').innerHTML = icon('prev');
         document.getElementById('nextBtn').innerHTML = icon('next');
-        document.getElementById('shuffleBtn').innerHTML = icon('shuffle');
-        document.getElementById('openPlaylistBtn').innerHTML = icon('list') + '<span>Biblioteca</span><span class="badge" id="playlistBadge">0</span>';
-        document.getElementById('openDownloadsBtn').innerHTML = icon('download') + '<span>Descargadas</span>';
-        document.getElementById('modeMixBtn').innerHTML = icon('infinity') + '<span>Mix</span>';
-        document.getElementById('modeChristianBtn').innerHTML = icon('cross') + '<span>Cristiana</span>';
-        document.getElementById('modeOwnBtn').innerHTML = icon('user') + '<span>Mías</span>';
-        document.getElementById('modeGymBtn').innerHTML = icon('flame') + '<span>GYM</span>';
-        document.getElementById('repeatBtn').innerHTML = icon('repeat');
-        document.getElementById('topBtn').innerHTML = icon('star');
         document.getElementById('playBtn').innerHTML = icon('play');
-        document.getElementById('downloadsBackBtn').innerHTML = icon('arrowLeft');
+        document.getElementById('shuffleBtn').innerHTML = icon('shuffle');
+        document.getElementById('repeatBtn').innerHTML = icon('repeat');
+        document.getElementById('favoriteBtn').innerHTML = icon('heart');
+        document.getElementById('quickDownloadBtn').innerHTML = icon('download');
+        document.getElementById('cbSelectIcon').innerHTML = icon('selector');
         document.getElementById('albumImage').src = this.portadaActual;
-        this.renderFloaties();
-    }
-
-    renderFloaties() {
-        const el = document.getElementById('floaties');
-        if (!el) return;
-        el.innerHTML = decorShape('note') + decorShape('ring') + decorShape('blobA') + decorShape('ring') + decorShape('note') + decorShape('blobB');
     }
 
     initDOM() {
         this.dom = {
+            appShell: document.getElementById('appShell'),
             playBtn: document.getElementById('playBtn'),
             prevBtn: document.getElementById('prevBtn'),
             nextBtn: document.getElementById('nextBtn'),
@@ -66,30 +58,28 @@ class MusicPlayer {
             currentTime: document.getElementById('currentTime'),
             totalTime: document.getElementById('totalTime'),
             currentTitle: document.getElementById('currentSongTitle'),
-            currentArtist: document.getElementById('currentSongArtist'),
             favoriteBtn: document.getElementById('favoriteBtn'),
-            likeBtn: document.getElementById('likeBtn'),
+            quickDownloadBtn: document.getElementById('quickDownloadBtn'),
             shuffleBtn: document.getElementById('shuffleBtn'),
             repeatBtn: document.getElementById('repeatBtn'),
-            topBtn: document.getElementById('topBtn'),
             albumArt: document.getElementById('albumArt'),
             albumImage: document.getElementById('albumImage'),
             waves: document.querySelectorAll('.wave'),
-            modalOverlay: document.getElementById('modalOverlay'),
-            modalPlaylist: document.getElementById('modalPlaylist'),
-            modalTitle: document.getElementById('modalTitleIcon'),
             openPlaylistBtn: document.getElementById('openPlaylistBtn'),
             openDownloadsBtn: document.getElementById('openDownloadsBtn'),
-            closeModalBtn: document.getElementById('closeModalBtn'),
-            storageInfo: document.getElementById('storageInfo'),
+            headerLabel: document.getElementById('headerLabel'),
             toast: document.getElementById('toast'),
             offlineBadge: document.getElementById('offlineBadge'),
-            modeSwitch: document.getElementById('modeSwitch'),
-            modeIndicator: document.getElementById('modeIndicator'),
-            modeBtns: document.querySelectorAll('.mode-btn'),
-            downloadsPage: document.getElementById('downloadsPage'),
-            downloadsBody: document.getElementById('downloadsBody'),
-            downloadsBackBtn: document.getElementById('downloadsBackBtn'),
+            categoryBadgeBtn: document.getElementById('categoryBadgeBtn'),
+            categoryBadgeLabel: document.getElementById('categoryBadgeLabel'),
+            categoryBadgeIcon: document.getElementById('categoryBadgeIcon'),
+            mixModalOverlay: document.getElementById('mixModalOverlay'),
+            mixOptionsList: document.getElementById('mixOptionsList'),
+            mixAcceptBtn: document.getElementById('mixAcceptBtn'),
+            songListView: document.getElementById('songListView'),
+            songListScroll: document.getElementById('songListScroll'),
+            tabAll: document.getElementById('tabAll'),
+            tabTop: document.getElementById('tabTop'),
         };
     }
 
@@ -98,10 +88,9 @@ class MusicPlayer {
         this.dom.prevBtn.addEventListener('click', () => this.prevSong());
         this.dom.nextBtn.addEventListener('click', () => this.nextSong());
         this.dom.favoriteBtn.addEventListener('click', () => this.toggleFavorite());
-        this.dom.likeBtn.addEventListener('click', () => this.toggleFavorite());
+        this.dom.quickDownloadBtn.addEventListener('click', () => this.downloadCurrentSong());
         this.dom.shuffleBtn.addEventListener('click', () => this.toggleShuffle());
         this.dom.repeatBtn.addEventListener('click', () => this.toggleRepeat());
-        this.dom.topBtn.addEventListener('click', () => this.openTopModal());
         [this.audioA, this.audioB].forEach(a => {
             a.addEventListener('timeupdate', () => this.onTimeUpdate(a));
             a.addEventListener('ended', () => this.onEnded(a));
@@ -114,18 +103,15 @@ class MusicPlayer {
         document.addEventListener('mouseup', () => this.endDrag());
         document.addEventListener('touchend', () => this.endDrag());
         document.addEventListener('keydown', (e) => this.onKeyDown(e));
-        this.dom.openPlaylistBtn.addEventListener('click', () => this.openLibraryModal());
-        this.dom.openDownloadsBtn.addEventListener('click', () => this.openDownloadsPage());
-        this.dom.downloadsBackBtn.addEventListener('click', () => this.closeDownloadsPage());
-        this.dom.closeModalBtn.addEventListener('click', () => this.closeModal());
-        this.dom.modalOverlay.addEventListener('click', (e) => { if (e.target === this.dom.modalOverlay) this.closeModal(); });
-        this.dom.modeBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const mode = btn.dataset.mode;
-                if (mode === 'mix') this.openMixConfig();
-                else this.playCategory(mode);
-            });
-        });
+
+        this.dom.openPlaylistBtn.addEventListener('click', () => this.toggleListMode(!this.isListMode));
+        this.dom.albumArt.addEventListener('click', () => { if (this.isListMode) this.toggleListMode(false); });
+        this.dom.openDownloadsBtn.addEventListener('click', () => this.toggleDownloadsMode());
+
+        this.dom.categoryBadgeBtn.addEventListener('click', () => this.openMixConfig());
+        this.dom.tabAll.addEventListener('click', () => this.switchListTab('all'));
+        this.dom.tabTop.addEventListener('click', () => this.switchListTab('top'));
+
         window.addEventListener('online', () => this.updateOfflineStatus());
         window.addEventListener('offline', () => this.updateOfflineStatus());
         this.updateOfflineStatus();
@@ -139,16 +125,9 @@ class MusicPlayer {
             this.mixCategories = await this.db.getMeta('mixCategories', []);
             const allStats = await this.db.getAllStats();
             allStats.forEach(s => this.statsCache.set(s.key, s));
-            this.updateTopBadge();
 
-            if (this.mixCategories.length > 0) {
-                this.buildPlaylistFromCategories(this.mixCategories);
-                this.currentMode = 'mix';
-            } else {
-                this.playlist = CATALOG.slice();
-                this.currentMode = 'library';
-            }
-            this.highlightMode(this.currentMode === 'mix' ? 'mix' : null);
+            this.rebuildPlaylistFromState();
+            this.updateCategoryBadge();
             if (this.playlist.length > 0) {
                 this.currentIndex = 0;
                 await this.loadSong(this.currentIndex, { autoplay: false });
@@ -175,32 +154,86 @@ class MusicPlayer {
         await this.db.setStats(stat);
     }
 
-    // ---------- MODO / CATEGORÍAS ----------
+    // ---------- CATEGORÍAS / MIX ----------
     buildPlaylistFromCategories(cats) {
         this.playlist = CATALOG.filter(s => cats.includes(s.category));
     }
-    playCategory(cat) {
-        this.playlist = CATALOG.filter(s => s.category === cat);
-        this.currentMode = cat;
+
+    // Reconstruye this.playlist según el pool activo (catálogo completo o solo
+    // descargadas si downloadsMode está activo) y la selección de Mix vigente.
+    rebuildPlaylistFromState() {
+        const pool = this.downloadsMode ? (this.downloadedCatalog || []) : CATALOG;
+        this.playlist = this.mixCategories.length > 0
+            ? pool.filter(s => this.mixCategories.includes(s.category))
+            : pool.slice();
         this.currentIndex = 0;
-        this.highlightMode(cat);
-        if (this.playlist.length === 0) {
-            this.showToast('x', `No hay canciones en ${CATS[cat].label} todavía`);
-            return;
-        }
-        this.startPlayback();
     }
-    highlightMode(mode) {
-        const order = ['mix', 'cristiana', 'propia', 'gym'];
-        const idx = order.indexOf(mode);
-        this.dom.modeIndicator.style.opacity = idx < 0 ? '0' : '1';
-        if (idx >= 0) this.dom.modeIndicator.style.transform = `translateX(${idx * 100}%)`;
-        this.dom.modeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+
+    // ---------- MODO DESCARGAS ----------
+    // No es una página aparte: solo cambia la fuente de datos (catálogo → descargadas)
+    // y el header, manteniendo exactamente la misma interacción (Mix, categorías, lista).
+    async toggleDownloadsMode() {
+        this.downloadsMode = !this.downloadsMode;
+        this.dom.headerLabel.classList.toggle('show', this.downloadsMode);
+        this.dom.openDownloadsBtn.innerHTML = icon(this.downloadsMode ? 'arrowLeft' : 'download');
+        this.dom.openDownloadsBtn.title = this.downloadsMode ? 'Volver' : 'Descargadas';
+
+        if (this.downloadsMode) {
+            const keys = await this.db.getCacheKeys();
+            this.downloadedCatalog = keys.map(k => findByKey(k)).filter(Boolean);
+            if (this.downloadedCatalog.length === 0) {
+                this.showToast('download', 'Aún no tienes canciones descargadas');
+            }
+        } else {
+            this.downloadedCatalog = null;
+        }
+        this.rebuildPlaylistFromState();
+        if (this.isListMode) this.switchListTab(this.activeListTab);
+    }
+
+    updateCategoryBadge() {
+        const label = this.dom.categoryBadgeLabel;
+        const iconEl = this.dom.categoryBadgeIcon;
+        if (this.mixCategories.length === 0) {
+            label.textContent = 'Elige tu mix';
+            iconEl.innerHTML = icon('music');
+        } else if (this.mixCategories.length === 1) {
+            const def = CATS[this.mixCategories[0]];
+            label.textContent = def.label;
+            iconEl.innerHTML = icon(def.icon);
+        } else {
+            label.textContent = 'Mezcla';
+            iconEl.innerHTML = icon('infinity');
+        }
     }
 
     startPlayback() {
         if (this.playlist.length === 0) return;
         this.loadSong(this.currentIndex, { autoplay: true });
+    }
+
+    // ---------- LIST MODE (biblioteca inline) ----------
+    toggleListMode(open) {
+        this.isListMode = open;
+        this.dom.appShell.classList.toggle('list-mode', open);
+        if (open) this.switchListTab(this.activeListTab);
+    }
+    async switchListTab(tab) {
+        this.activeListTab = tab;
+        this.dom.tabAll.classList.toggle('active', tab === 'all');
+        this.dom.tabTop.classList.toggle('active', tab === 'top');
+        let songs;
+        if (tab === 'top') {
+            songs = await this.getTopList();
+        } else {
+            songs = this.downloadsMode ? (this.downloadedCatalog || []) : CATALOG;
+        }
+        await this.renderSongCards(this.dom.songListScroll, songs, {
+            emptyMsg: tab === 'top'
+                ? 'Aún no tienes canciones en tu TOP'
+                : (this.downloadsMode ? 'Aún no tienes canciones descargadas' : 'No hay canciones disponibles'),
+            sourceIsTop: tab === 'top'
+        });
     }
 
     // ---------- CARGA Y REPRODUCCIÓN ----------
@@ -239,21 +272,17 @@ class MusicPlayer {
             } else {
                 this.setPlayButtonState(false);
             }
-            this.updatePlaylistUI();
+            if (this.isListMode) this.switchListTab(this.activeListTab);
         }
         return audio;
     }
 
     updateSongUI(song, offline) {
         this.dom.currentTitle.textContent = song.title;
-        const def = CATS[song.category];
-        const posInfo = `${this.currentIndex + 1} de ${this.playlist.length}`;
-        const catTag = `<span class="tag ${def.tag}">${icon(def.icon)} ${def.label}</span>`;
-        const statusTag = offline ? `<span class="tag status">${icon('check')} Offline</span>` : '';
-        this.dom.currentArtist.innerHTML = `${posInfo} ${catTag} ${statusTag}`;
         this.portadaActual = getRandomPortada();
         this.dom.albumImage.src = this.portadaActual;
         this.getStatsFor(song.key).then(st => this.updateFavoriteUI(st.liked));
+        this.db.getCachedBlob(song.key).then(blob => this.updateDownloadUI(!!blob));
         this.updateMediaSessionMeta(song);
     }
 
@@ -441,7 +470,7 @@ class MusicPlayer {
         this.currentIndex = this._crossfadeNextIndex;
         const song = this.playlist[this.currentIndex];
         this.updateSongUI(song, newAudio._offline);
-        this.updatePlaylistUI();
+        if (this.isListMode) this.switchListTab(this.activeListTab);
     }
 
     toggleFavorite() {
@@ -453,31 +482,41 @@ class MusicPlayer {
             this.updateFavoriteUI(st.liked);
             this.showToast('heart', st.liked ? 'Agregado a tu TOP' : 'Eliminado de favoritos');
             if (st.liked) {
-                if (navigator.onLine) await this.ensureCached(song);
+                if (navigator.onLine) { await this.ensureCached(song); this.updateDownloadUI(true); }
             } else {
                 const stillTop = this.topScored.includes(song.key);
-                if (!stillTop && !st.manualDownload) await this.db.deleteCachedBlob(song.key);
+                if (!stillTop && !st.manualDownload) { await this.db.deleteCachedBlob(song.key); this.updateDownloadUI(false); }
             }
-            this.updateTopBadge();
         });
     }
     updateFavoriteUI(liked) {
         const cls = liked ? 'icon-filled' : '';
         this.dom.favoriteBtn.innerHTML = icon('heart', cls);
-        this.dom.favoriteBtn.classList.toggle('liked', liked);
-        this.dom.likeBtn.innerHTML = icon('heart', cls);
-        this.dom.likeBtn.classList.toggle('is-active', liked);
+        this.dom.favoriteBtn.classList.toggle('toggle-pressed', liked);
+    }
+    updateDownloadUI(downloaded) {
+        this.dom.quickDownloadBtn.innerHTML = icon(downloaded ? 'check' : 'download');
+        this.dom.quickDownloadBtn.classList.toggle('toggle-pressed', downloaded);
+    }
+
+    async downloadCurrentSong() {
+        if (!this.playlist.length) return;
+        const song = this.playlist[this.currentIndex];
+        const already = await this.db.getCachedBlob(song.key);
+        if (already) return;
+        await this.downloadManually(song, this.dom.quickDownloadBtn);
+        this.updateDownloadUI(true);
     }
 
     toggleShuffle() {
         this.isShuffle = !this.isShuffle;
-        this.dom.shuffleBtn.classList.toggle('is-active', this.isShuffle);
+        this.dom.shuffleBtn.classList.toggle('toggle-pressed', this.isShuffle);
         this.showToast('shuffle', this.isShuffle ? 'Aleatorio activado' : 'Aleatorio desactivado');
         if (this.isShuffle) this.shuffleHistory = [];
     }
     toggleRepeat() {
         this.isRepeat = !this.isRepeat;
-        this.dom.repeatBtn.classList.toggle('active', this.isRepeat);
+        this.dom.repeatBtn.classList.toggle('toggle-pressed', this.isRepeat);
         this.showToast('repeat', this.isRepeat ? 'Repetir activado' : 'Repetir desactivado');
         if (this.isRepeat && this.active._songKey) {
             this.getStatsFor(this.active._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
@@ -509,7 +548,6 @@ class MusicPlayer {
         for (const key of cacheKeys) {
             if (!likedKeys.has(key) && !manualKeys.has(key) && !scored.includes(key)) await this.db.deleteCachedBlob(key);
         }
-        this.updateTopBadge();
         this.showToast('star', 'Tu TOP se actualizó con tus gustos');
     }
 
@@ -539,7 +577,7 @@ class MusicPlayer {
             st.manualDownload = true;
             await this.saveStats(st);
             this.showToast('check', `"${song.title}" descargada`);
-            if (btnEl) { btnEl.classList.remove('downloading'); btnEl.classList.add('downloaded'); btnEl.innerHTML = icon('check'); }
+            if (btnEl) { btnEl.classList.remove('downloading'); btnEl.classList.add('downloaded', 'toggle-pressed'); btnEl.innerHTML = icon('check'); }
         } else {
             this.showToast('x', 'No se pudo descargar');
             if (btnEl) btnEl.classList.remove('downloading');
@@ -560,16 +598,6 @@ class MusicPlayer {
         const likedKeys = allStats.filter(s => s.liked).map(s => s.key);
         const combined = Array.from(new Set([...likedKeys, ...this.topScored]));
         return combined.map(k => findByKey(k)).filter(Boolean);
-    }
-
-    async updateTopBadge() {
-        const list = await this.getTopList();
-        const btn = this.dom.topBtn;
-        let badge = btn.querySelector('.mini-badge');
-        if (list.length > 0) {
-            if (!badge) { badge = document.createElement('span'); badge.className = 'mini-badge'; btn.appendChild(badge); }
-            badge.textContent = list.length;
-        } else if (badge) { badge.remove(); }
     }
 
     // ---------- ARRASTRE DE PROGRESO ----------
@@ -623,7 +651,7 @@ class MusicPlayer {
         if (e.key === ' ' || e.key === 'Space') { e.preventDefault(); this.togglePlay(); }
         if (e.key === 'ArrowRight') this.nextSong();
         if (e.key === 'ArrowLeft') this.prevSong();
-        if (e.key === 'Escape') { this.closeModal(); this.closeDownloadsPage(); }
+        if (e.key === 'Escape') { this.closeMixConfig(); this.toggleListMode(false); }
     }
 
     setupMediaSession() {
