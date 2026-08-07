@@ -1,170 +1,110 @@
 // ============================================
-// SERVICE WORKER - CACHE DE RECURSOS
+// SERVICE WORKER - CACHE DE RECURSOS (v5)
+// La app transmite las canciones directo (streaming) y solo
+// guarda offline las del TOP inteligente o las descargadas
+// manualmente, vía IndexedDB. Este SW ya NO intercepta .mp3:
+// así el navegador puede usar peticiones por rangos (range
+// requests) para buffer progresivo y saltos en la barra.
 // ============================================
 
-const CACHE_NAME = 'music-player-v3'; // v2: nuevo diseño visual + modos de reproducción
+const CACHE_NAME = 'music-player-shell-v5';
 const OFFLINE_URL = 'index.html';
 
-// Recursos a cachear (siempre disponibles offline)
 const STATIC_ASSETS = [
     'index.html',
+    'styles.css',
     'manifest.json',
     'songs.js',
+    'js/icons.js',
+    'js/catalog.js',
+    'js/db.js',
+    'js/player-core.js',
+    'js/player-ui.js',
+    'js/app.js',
     'icon-192.png',
     'icon-512.png'
 ];
 
-// ============================================
-// INSTALACIÓN - Cachear recursos estáticos
-// ============================================
+const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+
 self.addEventListener('install', (event) => {
-    console.log('Service Worker: Instalando...');
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('Cacheando recursos estáticos...');
-                return cache.addAll(STATIC_ASSETS);
-            })
-            .then(() => {
-                console.log('Recursos cacheados correctamente');
-                return self.skipWaiting();
-            })
-            .catch((error) => {
-                console.error('Error cacheando recursos:', error);
-            })
+            .then((cache) => cache.addAll(STATIC_ASSETS))
+            .then(() => self.skipWaiting())
+            .catch((error) => console.error('Error cacheando recursos:', error))
     );
 });
 
-// ============================================
-// ACTIVACIÓN - Limpiar cachés viejos
-// ============================================
 self.addEventListener('activate', (event) => {
-    console.log('Service Worker: Activando...');
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('Eliminando caché vieja:', cacheName);
-                        return caches.delete(cacheName);
-                    }
+                    if (cacheName !== CACHE_NAME) return caches.delete(cacheName);
                 })
             );
-        }).then(() => {
-            console.log('Service Worker activado y controlando la página');
-            return self.clients.claim();
-        })
+        }).then(() => self.clients.claim())
     );
 });
 
-// ============================================
-// INTERCEPCIÓN DE PETICIONES - Estrategia Offline
-// ============================================
 self.addEventListener('fetch', (event) => {
     const request = event.request;
     const url = new URL(request.url);
 
-    // Permitir navegación offline
+    // Nunca interceptar audio: dejar que el navegador maneje streaming/range nativamente.
+    if (url.pathname.endsWith('.mp3')) return;
+
+    // Fuentes de Google: cache-first para que funcionen offline tras la primera carga.
+    if (FONT_HOSTS.includes(url.hostname)) {
+        event.respondWith(
+            caches.match(request).then((cached) => {
+                if (cached) return cached;
+                return fetch(request).then((response) => {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
+                    return response;
+                }).catch(() => cached);
+            })
+        );
+        return;
+    }
+
+    // Navegación offline: servir el shell cacheado.
     if (request.mode === 'navigate') {
         event.respondWith(
-            fetch(request)
-                .catch(() => {
-                    console.log('Offline: Sirviendo index.html desde caché');
-                    return caches.match(OFFLINE_URL);
-                })
+            fetch(request).catch(() => caches.match(OFFLINE_URL))
         );
         return;
     }
 
-    // Estrategia: Cache First para archivos MP3
-    if (url.pathname.endsWith('.mp3')) {
-        event.respondWith(
-            caches.match(request)
-                .then((cachedResponse) => {
-                    if (cachedResponse) {
-                        console.log('MP3 desde caché:', url.pathname);
-                        return cachedResponse;
-                    }
-                    console.log('MP3 desde red:', url.pathname);
-                    return fetch(request)
-                        .then((response) => {
-                            const clonedResponse = response.clone();
-                            caches.open(CACHE_NAME)
-                                .then((cache) => {
-                                    cache.put(request, clonedResponse);
-                                })
-                                .catch((err) => console.error('Error cacheando MP3:', err));
-                            return response;
-                        })
-                        .catch(() => {
-                            console.warn('No se pudo cargar el MP3:', url.pathname);
-                            return new Response('', {
-                                status: 200,
-                                statusText: 'OK',
-                                headers: {
-                                    'Content-Type': 'audio/mpeg',
-                                    'Content-Length': '0'
-                                }
-                            });
-                        });
-                })
-        );
-        return;
-    }
-
-    // Estrategia: Cache First para imágenes
+    // Imágenes: cache first.
     if (url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
         event.respondWith(
-            caches.match(request)
-                .then((cachedResponse) => {
-                    if (cachedResponse) {
-                        return cachedResponse;
-                    }
-                    return fetch(request)
-                        .then((response) => {
-                            const clonedResponse = response.clone();
-                            caches.open(CACHE_NAME)
-                                .then((cache) => cache.put(request, clonedResponse));
-                            return response;
-                        })
-                        .catch(() => {
-                            return new Response('', {
-                                status: 404,
-                                statusText: 'Not Found'
-                            });
-                        });
-                })
+            caches.match(request).then((cachedResponse) => {
+                if (cachedResponse) return cachedResponse;
+                return fetch(request).then((response) => {
+                    const clonedResponse = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, clonedResponse));
+                    return response;
+                }).catch(() => new Response('', { status: 404, statusText: 'Not Found' }));
+            })
         );
         return;
     }
 
-    // Estrategia: Network First con fallback a caché para otros recursos
-    event.respondWith(
-        fetch(request)
-            .then((response) => {
+    // Resto de recursos propios: network first con fallback a caché.
+    if (url.origin === self.location.origin) {
+        event.respondWith(
+            fetch(request).then((response) => {
                 const clonedResponse = response.clone();
-                caches.open(CACHE_NAME)
-                    .then((cache) => {
-                        cache.put(request, clonedResponse);
-                    })
-                    .catch((err) => console.error('Error cacheando recurso:', err));
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, clonedResponse)).catch(() => {});
                 return response;
+            }).catch(() => {
+                return caches.match(request).then((cachedResponse) => {
+                    return cachedResponse || new Response('Recurso no disponible offline', { status: 404, statusText: 'Not Found' });
+                });
             })
-            .catch(() => {
-                console.log('Offline: Buscando en caché:', url.pathname);
-                return caches.match(request)
-                    .then((cachedResponse) => {
-                        if (cachedResponse) {
-                            return cachedResponse;
-                        }
-                        console.warn('No encontrado en caché:', url.pathname);
-                        return new Response('Recurso no disponible offline', {
-                            status: 404,
-                            statusText: 'Not Found'
-                        });
-                    });
-            })
-    );
+        );
+    }
 });
-
-console.log('Service Worker cargado correctamente');

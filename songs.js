@@ -1,22 +1,58 @@
-    const CRISTIANS = [
-        { title: "Si tu voluntad duele", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Si%20tu%20voluntad%20duele.mp3" },
-        { title: "Nunca me dejarás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Nunca%20me%20dejar%C3%A1s.mp3" },
-        { title: "Sorprendeme Dios", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Sorprendeme%20Dios.mp3" },
-        { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
-        { title: "Tu proveerás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20proveerás.mp3" }
-    ];
-    const MIAS = [
-        { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
-        { title: "Contigo todo pesa menos", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Contigo%20todo%20pesa%20menos.mp3" },
-        { title: "EL QUE NO DUERME v2", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
-        { title: "El desorden perfecto", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20desorden%20perfecto.mp3" },
-        { title: "El reloj se para", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20reloj%20se%20para.mp3" },
-        { title: "El tamaño de tu mano", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20tama%C3%B1o%20de%20tu%20mano.mp3" },
-        { title: "Mi lugar en el mundo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20en%20el%20mundo.mp3" },
-        { title: "Mi princesa", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20princesa.mp3" },
-        { title: "También sus espinas", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tambi%C3%A9n%20sus%20espinas.mp3" },
-        { title: "Te amo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Te%20amo.mp3" },
-        { title: "Todavía me sorprende", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Todav%C3%ADa%20me%20sorprende.mp3" },
-        { title: "Tu nombre es mi respiración", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20nombre%20es%20mi%20respiraci%C3%B3n.mp3" },
-        { title: "Mi lugar favorito", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20favorito.mp3" }
-    ];
+const CRISTIANS = [
+    { title: "Si tu voluntad duele", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Si%20tu%20voluntad%20duele.mp3" },
+    { title: "Nunca me dejarás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Nunca%20me%20dejar%C3%A1s.mp3" },
+    { title: "Sorprendeme Dios", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Sorprendeme%20Dios.mp3" },
+    { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
+    { title: "Tu proveerás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20proveerás.mp3" }
+];
+const MIAS = [
+    { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
+    { title: "Contigo todo pesa menos", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Contigo%20todo%20pesa%20menos.mp3" },
+    { title: "EL QUE NO DUERME v2", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v2.mp3" },
+    { title: "El desorden perfecto", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20desorden%20perfecto.mp3" },
+    { title: "El reloj se para", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20reloj%20se%20para.mp3" },
+    { title: "El tamaño de tu mano", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20tama%C3%B1o%20de%20tu%20mano.mp3" },
+    { title: "Mi lugar en el mundo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20en%20el%20mundo.mp3" },
+    { title: "Mi princesa", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20princesa.mp3" },
+    { title: "También sus espinas", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tambi%C3%A9n%20sus%20espinas.mp3" },
+    { title: "Te amo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Te%20amo.mp3" },
+    { title: "Todavía me sorprende", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Todav%C3%ADa%20me%20sorprende.mp3" },
+    { title: "Tu nombre es mi respiración", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20nombre%20es%20mi%20respiraci%C3%B3n.mp3" },
+    { title: "Mi lugar favorito", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mi%20lugar%20favorito.mp3" }
+];
+
+const GYM = [
+    { title: "Adrenalina hard techno rave", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/adrenalina%20hard%20techno%20rave.mp3" },
+    { title: "First blood", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/first%20blood.mp3" },
+    { title: "Ogryzek - aura", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/ogryzek%20-%20aura.mp3" },
+    { title: "Skrillex and damian jr. gong marley - make it bun dem", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skrillex%20and%20damian%20jr.%20gong%20marley%20-%20make%20it%20bun%20dem.mp3" },
+    { title: "Alessia Cara - here", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/alessia%20cara%20-%20here.mp3" },
+    { title: "Fujii Kaze - shinunoga e-wa", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/fujii%20kaze%20-%20shinunoga%20e-wa.mp3" },
+    { title: "Olivia Rodrigo - honeybee", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/olivia%20rodrigo%20-%20honeybee.mp3" },
+    { title: "Super Smash Bros. Brawl Drill Remix by Shae Ot", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/super%20smash%20bros%20brawl%20drill%20remix%20by%20shae%20ot.mp3" },
+    { title: "Ballintekk", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/ballintekk.mp3" },
+    { title: "Hard techno voices in my head", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/hard%20techno%20voices%20in%20my%20head.mp3" },
+    { title: "Skillet - hero", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skillet%20-%20hero.mp3" },
+    { title: "Tell em x killin on demand tiktok", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/tell%20em%20x%20killin%20on%20demand%20tiktok.mp3" },
+    { title: "Billie Eilish - lamour de ma vie", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/billie%20eilish%20-%20lamour%20de%20ma%20vie.mp3" },
+    { title: "Infeed - freedom inside your illness", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/infeed%20-%20freedom%20inside%20your%20illness.mp3" },
+    { title: "Skillet - monster", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skillet%20-%20monster.mp3" },
+    { title: "Twenty One Pilots - heathens", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/twenty%20one%20pilots%20-%20heathens.mp3" },
+    { title: "Boney M. - rasputin", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/boney%20m.%20-%20rasputin.mp3" },
+    { title: "Jeremy zucker - comethru", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/jeremy%20zucker%20-%20comethru.mp3" },
+    { title: "Skillet - not gonna die", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skillet%20-%20not%20gonna%20die.mp3" },
+    { title: "Unaverage gang - underworld", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/unaverage%20gang%20-%20underworld.mp3" },
+    { title: "Can you feel my heart - bring me the horizon", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/can%20you%20feel%20my%20heart%20-%20bring%20me%20the%20horizon.mp3" },
+    { title: "Kaguya-sama love is waramvdoma josean log", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/kaguya-sama%20love%20is%20waramvdoma%20josean%20log.mp3" },
+    { title: "Skrillex - bangarang feat. sirah", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skrillex%20-%20bangarang%20feat.%20sirah.mp3" },
+    { title: "Xvallarix - ballintekk", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/xvallarix%20-%20ballintekk.mp3" },
+    { title: "Chicago - michael jackson", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/chicago%20-%20michael%20jackson.mp3" },
+    { title: "Kehlani - gangsta", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/kehlani%20-%20gangsta.mp3" },
+    { title: "Skrillex - first of the year", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skrillex%20-%20first%20of%20the%20year.mp3" },
+    { title: "Danny - take me", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/d%20a%20n%20n%20y%20-%20take%20me.mp3" },
+    { title: "Kordhell - murder in my mind speed up", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/kordhell%20-%20murder%20in%20my%20mind%20speed%20up.mp3" },
+    { title: "Skrillex - kyoto", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skrillex%20-%20kyoto.mp3" },
+    { title: "Esta cancion da mucha aura", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/esta%20cancion%20da%20mucha%20aura.mp3" },
+    { title: "Mtg chihiro", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/mtg%20chihiro.mp3" },
+    { title: "Skrillex - rock n roll", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/skrillex%20-%20rock%20n%20roll.mp3" }
+];
