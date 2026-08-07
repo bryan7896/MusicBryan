@@ -174,6 +174,12 @@ class MusicPlayer {
     // y el header, manteniendo exactamente la misma interacción (Mix, categorías, lista).
     async toggleDownloadsMode() {
         this.downloadsMode = !this.downloadsMode;
+        document.body.classList.toggle('theme-downloads', this.downloadsMode);
+        buildFallingCircles(
+            document.getElementById('fallingCircles'),
+            this.downloadsMode ? CIRCLE_PALETTE_DOWNLOADS : CIRCLE_PALETTE_HOME,
+            16
+        );
         this.dom.headerLabel.classList.toggle('show', this.downloadsMode);
         this.dom.openDownloadsBtn.innerHTML = icon(this.downloadsMode ? 'arrowLeft' : 'download');
         this.dom.openDownloadsBtn.title = this.downloadsMode ? 'Volver' : 'Descargadas';

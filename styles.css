@@ -98,7 +98,7 @@ svg.icon { width:1em; height:1em; display:block; flex-shrink:0; }
 .header-chip svg { width:16px; height:16px; }
 
 /* ---- Vista "ahora reproduciendo" ---- */
-.now-playing-view { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-height:0; }
+.now-playing-view { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; gap:4px; }
 
 .category-badge {
     display:flex; align-items:center; gap:8px; padding:8px 16px 8px 10px; border-radius:20px;
@@ -117,7 +117,7 @@ svg.icon { width:1em; height:1em; display:block; flex-shrink:0; }
 
 .album-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-shrink:0;
     width:80%; margin:0 auto; transition:transform 0.4s var(--ease-spring); }
-.app-shell.list-mode .album-row { transform:scale(0.6); margin:-14px auto; }
+.app-shell.list-mode .album-row { transform:scale(0.6); margin:-14px auto; justify-content:center; }
 
 .side-btn {
     width:38px; height:38px; border-radius:50%; border:none; cursor:pointer; flex-shrink:0;
@@ -320,4 +320,10 @@ svg.icon { width:1em; height:1em; display:block; flex-shrink:0; }
 }
 @media (prefers-reduced-motion:reduce) {
     *,*::before,*::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+}
+body.theme-downloads {
+    --primary: #F73A76;
+    --primary-icon: #F73A76;
+    --primary-deep: #D62764;
+    --primary-chip: #FF6FA0;
 }

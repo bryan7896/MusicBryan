@@ -29,3 +29,8 @@ function buildFallingCircles(container, palette, count) {
         container.appendChild(c);
     }
 }
+const CIRCLE_PALETTE_DOWNLOADS = [
+    { base: '#8f1240', light: '#ff6fa0' },
+    { base: '#6b0e30', light: '#ff4f8a' },
+    { base: '#a3255c', light: '#ffa3c0' },
+];
