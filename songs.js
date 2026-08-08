@@ -10,6 +10,7 @@ const CRISTIANS = [
     { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
     { title: "Tu proveerás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20proveerás.mp3" },
     { title: "Mis planes en tus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mis%20planes%20en%20tus%20manos%20está.mp3" },
+    { title: "Guiame tú", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Guiame%20tú.mp3" },
 ];
 const MIAS = [
     { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
