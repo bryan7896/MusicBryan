@@ -8,7 +8,8 @@ const CRISTIANS = [
     { title: "Nunca me dejarás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Nunca%20me%20dejar%C3%A1s.mp3" },
     { title: "Sorprendeme Dios", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Sorprendeme%20Dios.mp3" },
     { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
-    { title: "Tu proveerás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20proveerás.mp3" }
+    { title: "Tu proveerás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20proveerás.mp3" },
+    { title: "Mis planes en tus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mis%20planes%20en%20tus%20manos%20está.mp3" },
 ];
 const MIAS = [
     { title: "EL QUE NO DUERME v1", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/EL%20QUE%20NO%20DUERME%20v1.mp3" },
