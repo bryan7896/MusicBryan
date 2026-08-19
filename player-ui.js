@@ -66,7 +66,9 @@ Object.assign(MusicPlayer.prototype, {
             `;
             card.addEventListener('click', (e) => {
                 if (e.target.closest('.sc-mini-btn')) return;
-                this.playlist = (sourceIsTop || this.downloadsMode) ? songs.slice() : CATALOG.slice();
+                // Usamos siempre la lista ya filtrada que se está mostrando (respeta el
+                // Mix/categoría seleccionada), nunca el catálogo completo sin filtrar.
+                this.playlist = songs.slice();
                 this.currentIndex = this.playlist.findIndex(s => s.key === song.key);
                 this.stopCrossfadeState();
                 this.loadSong(this.currentIndex, { autoplay: true });
