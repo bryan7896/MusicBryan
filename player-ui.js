@@ -23,6 +23,7 @@ Object.assign(MusicPlayer.prototype, {
         });
         this.dom.mixModalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
+        this.pushOverlayState('mix');
 
         this.dom.mixAcceptBtn.onclick = () => {
             const chosen = Array.from(this.dom.mixOptionsList.querySelectorAll('.mix-check.checked')).map(el => el.dataset.cat);
@@ -36,8 +37,10 @@ Object.assign(MusicPlayer.prototype, {
         };
     },
     closeMixConfig() {
+        if (!this.dom.mixModalOverlay.classList.contains('show')) return;
         this.dom.mixModalOverlay.classList.remove('show');
         document.body.style.overflow = '';
+        this.popOverlayState();
     },
 
     // ---------- TARJETAS DE CANCIONES (usadas en list-mode y en Descargadas) ----------

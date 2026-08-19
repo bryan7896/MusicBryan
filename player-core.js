@@ -164,7 +164,38 @@ class MusicPlayer {
             if (this.downloadsMode) this.exitDownloadsMode();
         });
         window.addEventListener('offline', () => this.updateOfflineStatus());
+        window.addEventListener('popstate', () => this.handleBackButton());
         this.updateOfflineStatus();
+    }
+
+    // ---------- HISTORIAL: que el botón "Atrás" cierre overlays en vez de salir de la app ----------
+    // Cada vez que se abre la lista, el selector de Mix o Configuración, se agrega
+    // una entrada al historial. Al presionar "Atrás", en vez de salir de la app,
+    // se consume esa entrada y cerramos lo que esté abierto.
+    pushOverlayState(name) {
+        this._overlayStack = this._overlayStack || [];
+        this._overlayStack.push(name);
+        history.pushState({ appOverlay: name }, '');
+    }
+    popOverlayState() {
+        this._overlayStack = this._overlayStack || [];
+        if (!this._overlayStack.length) return;
+        this._overlayStack.pop();
+        // Si el cierre vino del propio botón "Atrás", el historial ya retrocedió solo.
+        if (!this._closingFromPopstate) {
+            history.back();
+        }
+    }
+    handleBackButton() {
+        this._closingFromPopstate = true;
+        if (this.isListMode) {
+            this.toggleListMode(false);
+        } else if (this.dom.settingsModalOverlay.classList.contains('show')) {
+            this.closeSettings();
+        } else if (this.dom.mixModalOverlay.classList.contains('show')) {
+            this.closeMixConfig();
+        }
+        this._closingFromPopstate = false;
     }
 
     // ---------- COMBO SECRETO: 10 taps en la portada + tocar el ícono de lista ----------
@@ -310,10 +341,13 @@ class MusicPlayer {
         this.showSettingsView('menu');
         this.dom.settingsModalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
+        this.pushOverlayState('settings');
     }
     closeSettings() {
+        if (!this.dom.settingsModalOverlay.classList.contains('show')) return;
         this.dom.settingsModalOverlay.classList.remove('show');
         document.body.style.overflow = '';
+        this.popOverlayState();
     }
     showSettingsView(view) {
         const views = {
@@ -440,12 +474,19 @@ class MusicPlayer {
 
     // ---------- LIST MODE (biblioteca inline) ----------
     toggleListMode(open) {
+        const wasOpen = this.isListMode;
+        if (open === wasOpen) return; // evita entradas de historial duplicadas
         this.isListMode = open;
         this.dom.appShell.classList.toggle('list-mode', open);
         // El filtro de búsqueda se limpia siempre al abrir y al cerrar el listado.
         this.listSearchTerm = '';
         if (this.dom.listSearchInput) this.dom.listSearchInput.value = '';
-        if (open) this.switchListTab(this.activeListTab);
+        if (open) {
+            this.switchListTab(this.activeListTab);
+            this.pushOverlayState('list');
+        } else {
+            this.popOverlayState();
+        }
     }
     async switchListTab(tab) {
         this.activeListTab = tab;
