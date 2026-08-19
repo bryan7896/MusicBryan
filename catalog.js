@@ -18,14 +18,10 @@ function findByKey(key) {
     return CATALOG.find(s => s.key === key);
 }
 
-const PORTADAS = [
-    'https://picsum.photos/seed/music1/400/400', 'https://picsum.photos/seed/music2/400/400',
-    'https://picsum.photos/seed/music3/400/400', 'https://picsum.photos/seed/music4/400/400',
-    'https://picsum.photos/seed/music5/400/400', 'https://picsum.photos/seed/music6/400/400',
-    'https://picsum.photos/seed/music7/400/400', 'https://picsum.photos/seed/music8/400/400',
-    'https://picsum.photos/seed/music9/400/400', 'https://picsum.photos/seed/music10/400/400',
-];
-function getRandomPortada() { return PORTADAS[Math.floor(Math.random() * PORTADAS.length)]; }
+function getRandomPortada() {
+    const seed = Math.floor(Math.random() * 700) + 1;
+    return `https://picsum.photos/seed/music${seed}/400/400`;
+}
 
 // ---- Constantes de comportamiento del reproductor ----
 const RECALC_THRESHOLD = 40;
