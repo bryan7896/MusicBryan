@@ -63,10 +63,13 @@ Object.assign(MusicPlayer.prototype, {
             `;
             card.addEventListener('click', (e) => {
                 if (e.target.closest('.sc-mini-btn')) return;
-                this.playlist = sourceIsTop ? songs.slice() : CATALOG.slice();
+                this.playlist = (sourceIsTop || this.downloadsMode) ? songs.slice() : CATALOG.slice();
                 this.currentIndex = this.playlist.findIndex(s => s.key === song.key);
                 this.stopCrossfadeState();
                 this.loadSong(this.currentIndex, { autoplay: true });
+                // Al elegir una canción, siempre volvemos a la pantalla de reproducción.
+                if (this.isListMode) this.toggleListMode(false);
+                if (this.dom.settingsModalOverlay && this.dom.settingsModalOverlay.classList.contains('show')) this.closeSettings();
             });
             const likeBtn = card.querySelector('.sc-like');
             if (likeBtn) {

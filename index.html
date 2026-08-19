@@ -31,6 +31,50 @@
     </div>
 </div>
 
+<!-- MINI MODAL: Configuración -->
+<div class="mini-modal-overlay" id="settingsModalOverlay">
+    <div class="mini-modal settings-modal">
+        <div class="settings-modal-header">
+            <button class="settings-back-btn" id="settingsBackBtn"></button>
+            <div class="mini-modal-title" id="settingsModalTitle">Configuración</div>
+            <button class="settings-close-btn" id="settingsCloseBtn"></button>
+        </div>
+
+        <div class="settings-view" id="settingsViewMenu">
+            <button class="settings-menu-row" id="settingsGoThemes">
+                <span class="smr-icon"></span>
+                <span class="smr-label">Temas</span>
+                <span class="smr-arrow"></span>
+            </button>
+            <button class="settings-menu-row" id="settingsGoDownloads">
+                <span class="smr-icon"></span>
+                <span class="smr-label">Descargas</span>
+                <span class="smr-arrow"></span>
+            </button>
+            <button class="settings-menu-row" id="settingsGoAdd">
+                <span class="smr-icon"></span>
+                <span class="smr-label">Agregar</span>
+                <span class="smr-arrow"></span>
+            </button>
+        </div>
+
+        <div class="settings-view" id="settingsViewThemes" style="display:none;">
+            <div class="theme-swatch-list" id="themeSwatchList"></div>
+        </div>
+
+        <div class="settings-view" id="settingsViewDownloads" style="display:none;">
+            <div class="song-list-scroll settings-downloads-scroll" id="settingsDownloadsList"></div>
+        </div>
+
+        <div class="settings-view" id="settingsViewAdd" style="display:none;">
+            <div class="add-suggestion-box">
+                <textarea id="addSuggestionInput" class="add-suggestion-input" rows="4" placeholder="Escribe una URL o el nombre de la canción que quieres sugerir..."></textarea>
+                <button class="mix-accept-btn" id="addSuggestionSubmit">Enviar sugerencia</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="app-shell" id="appShell">
 
     <div class="top-section" id="topSection">
@@ -39,7 +83,7 @@
         <div class="header">
             <button class="header-chip" id="openPlaylistBtn" title="Biblioteca"></button>
             <span class="header-label" id="headerLabel">Descargas</span>
-            <button class="header-chip" id="openDownloadsBtn" title="Descargadas"></button>
+            <button class="header-chip" id="openSettingsBtn" title="Configuración"></button>
         </div>
 
         <div class="now-playing-view" id="nowPlayingView">
@@ -82,6 +126,9 @@
         </div>
 
         <div class="song-list-view" id="songListView">
+            <div class="list-search-wrap">
+                <input type="text" id="listSearchInput" class="list-search-input" placeholder="Buscar canción...">
+            </div>
             <div class="list-tabs">
                 <button class="list-tab active" id="tabAll">Todas</button>
                 <button class="list-tab" id="tabTop">Tu TOP</button>

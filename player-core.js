@@ -35,7 +35,7 @@ class MusicPlayer {
     renderStaticIcons() {
         document.getElementById('offlineBadge').innerHTML = icon('wifiOff') + ' Sin conexión — usando lo guardado';
         document.getElementById('openPlaylistBtn').innerHTML = icon('list');
-        document.getElementById('openDownloadsBtn').innerHTML = icon('download');
+        document.getElementById('openSettingsBtn').innerHTML = icon('settings');
         document.getElementById('prevBtn').innerHTML = icon('prev');
         document.getElementById('nextBtn').innerHTML = icon('next');
         document.getElementById('playBtn').innerHTML = icon('play');
@@ -45,6 +45,15 @@ class MusicPlayer {
         document.getElementById('quickDownloadBtn').innerHTML = icon('download');
         document.getElementById('cbSelectIcon').innerHTML = icon('selector');
         document.getElementById('albumImage').src = this.portadaActual;
+
+        document.getElementById('settingsBackBtn').innerHTML = icon('arrowLeft');
+        document.getElementById('settingsCloseBtn').innerHTML = icon('x');
+        document.querySelector('#settingsGoThemes .smr-icon').innerHTML = icon('disc');
+        document.querySelector('#settingsGoThemes .smr-arrow').innerHTML = icon('arrowLeft');
+        document.querySelector('#settingsGoDownloads .smr-icon').innerHTML = icon('download');
+        document.querySelector('#settingsGoDownloads .smr-arrow').innerHTML = icon('arrowLeft');
+        document.querySelector('#settingsGoAdd .smr-icon').innerHTML = icon('folderPlus');
+        document.querySelector('#settingsGoAdd .smr-arrow').innerHTML = icon('arrowLeft');
     }
 
     initDOM() {
@@ -66,7 +75,7 @@ class MusicPlayer {
             albumImage: document.getElementById('albumImage'),
             waves: document.querySelectorAll('.wave'),
             openPlaylistBtn: document.getElementById('openPlaylistBtn'),
-            openDownloadsBtn: document.getElementById('openDownloadsBtn'),
+            openSettingsBtn: document.getElementById('openSettingsBtn'),
             headerLabel: document.getElementById('headerLabel'),
             toast: document.getElementById('toast'),
             offlineBadge: document.getElementById('offlineBadge'),
@@ -78,8 +87,24 @@ class MusicPlayer {
             mixAcceptBtn: document.getElementById('mixAcceptBtn'),
             songListView: document.getElementById('songListView'),
             songListScroll: document.getElementById('songListScroll'),
+            listSearchInput: document.getElementById('listSearchInput'),
             tabAll: document.getElementById('tabAll'),
             tabTop: document.getElementById('tabTop'),
+            settingsModalOverlay: document.getElementById('settingsModalOverlay'),
+            settingsModalTitle: document.getElementById('settingsModalTitle'),
+            settingsBackBtn: document.getElementById('settingsBackBtn'),
+            settingsCloseBtn: document.getElementById('settingsCloseBtn'),
+            settingsViewMenu: document.getElementById('settingsViewMenu'),
+            settingsViewThemes: document.getElementById('settingsViewThemes'),
+            settingsViewDownloads: document.getElementById('settingsViewDownloads'),
+            settingsViewAdd: document.getElementById('settingsViewAdd'),
+            settingsGoThemes: document.getElementById('settingsGoThemes'),
+            settingsGoDownloads: document.getElementById('settingsGoDownloads'),
+            settingsGoAdd: document.getElementById('settingsGoAdd'),
+            themeSwatchList: document.getElementById('themeSwatchList'),
+            settingsDownloadsList: document.getElementById('settingsDownloadsList'),
+            addSuggestionInput: document.getElementById('addSuggestionInput'),
+            addSuggestionSubmit: document.getElementById('addSuggestionSubmit'),
         };
     }
 
@@ -104,17 +129,63 @@ class MusicPlayer {
         document.addEventListener('touchend', () => this.endDrag());
         document.addEventListener('keydown', (e) => this.onKeyDown(e));
 
-        this.dom.openPlaylistBtn.addEventListener('click', () => this.toggleListMode(!this.isListMode));
-        this.dom.albumArt.addEventListener('click', () => { if (this.isListMode) this.toggleListMode(false); });
-        this.dom.openDownloadsBtn.addEventListener('click', () => this.toggleDownloadsMode());
+        this.dom.openPlaylistBtn.addEventListener('click', () => {
+            if (this._awaitingUnlockListTap) {
+                this._awaitingUnlockListTap = false;
+                clearTimeout(this._unlockWindowTimer);
+                this.unlockMixSelector();
+            }
+            this.toggleListMode(!this.isListMode);
+        });
+        this.dom.albumArt.addEventListener('click', () => {
+            if (this.isListMode) { this.toggleListMode(false); return; }
+            this.registerAlbumTap();
+        });
+
+        this.dom.openSettingsBtn.addEventListener('click', () => this.openSettings());
+        this.dom.settingsCloseBtn.addEventListener('click', () => this.closeSettings());
+        this.dom.settingsBackBtn.addEventListener('click', () => this.showSettingsView('menu'));
+        this.dom.settingsGoThemes.addEventListener('click', () => this.showSettingsView('themes'));
+        this.dom.settingsGoDownloads.addEventListener('click', () => this.showSettingsView('downloads'));
+        this.dom.settingsGoAdd.addEventListener('click', () => this.showSettingsView('add'));
+        this.dom.addSuggestionSubmit.addEventListener('click', () => this.submitSuggestion());
+
+        this.dom.listSearchInput.addEventListener('input', (e) => {
+            this.listSearchTerm = e.target.value;
+            this.renderFilteredList();
+        });
 
         this.dom.categoryBadgeBtn.addEventListener('click', () => this.openMixConfig());
         this.dom.tabAll.addEventListener('click', () => this.switchListTab('all'));
         this.dom.tabTop.addEventListener('click', () => this.switchListTab('top'));
 
-        window.addEventListener('online', () => this.updateOfflineStatus());
+        window.addEventListener('online', () => {
+            this.updateOfflineStatus();
+            if (this.downloadsMode) this.exitDownloadsMode();
+        });
         window.addEventListener('offline', () => this.updateOfflineStatus());
         this.updateOfflineStatus();
+    }
+
+    // ---------- COMBO SECRETO: 10 taps en la portada + tocar el ícono de lista ----------
+    registerAlbumTap() {
+        clearTimeout(this._tapResetTimer);
+        this._tapCount = (this._tapCount || 0) + 1;
+        this._tapResetTimer = setTimeout(() => { this._tapCount = 0; }, 2500);
+        if (this._tapCount >= 10) {
+            this._tapCount = 0;
+            this._awaitingUnlockListTap = true;
+            this.showToast('star', 'Ahora toca el ícono de lista');
+            clearTimeout(this._unlockWindowTimer);
+            this._unlockWindowTimer = setTimeout(() => { this._awaitingUnlockListTap = false; }, 4000);
+        }
+    }
+    async unlockMixSelector() {
+        if (this.mixSelectorUnlocked) { this.showToast('check', 'El selector de categorías ya estaba activo'); return; }
+        this.mixSelectorUnlocked = true;
+        this.dom.appShell.classList.add('mix-unlocked');
+        await this.db.setMeta('mixSelectorUnlocked', true);
+        this.showToast('check', 'Selector de categorías desbloqueado');
     }
 
     async initApp() {
@@ -123,23 +194,38 @@ class MusicPlayer {
             this.totalPlays = await this.db.getMeta('totalPlays', 0);
             this.topScored = await this.db.getMeta('topScored', []);
             this.mixCategories = await this.db.getMeta('mixCategories', []);
+
+            // Por defecto siempre inicia en "Cristiana"; el selector de categorías
+            // permanece oculto hasta que se desbloquee con el combo secreto.
+            if (this.mixCategories.length === 0) {
+                this.mixCategories = ['cristiana'];
+                await this.db.setMeta('mixCategories', this.mixCategories);
+            }
+
+            this.mixSelectorUnlocked = await this.db.getMeta('mixSelectorUnlocked', false);
+            if (this.mixSelectorUnlocked) this.dom.appShell.classList.add('mix-unlocked');
+
+            const savedThemeId = await this.db.getMeta('theme', 'violeta');
+            this.applyTheme(savedThemeId, { silent: true });
+
             const allStats = await this.db.getAllStats();
             allStats.forEach(s => this.statsCache.set(s.key, s));
 
-            this.rebuildPlaylistFromState();
             this.updateCategoryBadge();
-            if (this.playlist.length > 0) {
-                this.currentIndex = 0;
-                await this.loadSong(this.currentIndex, { autoplay: false });
+
+            // Validar conexión al abrir: online -> catálogo normal, offline -> modo Descargas en rojo.
+            if (!navigator.onLine) {
+                await this.enterDownloadsMode();
             } else {
-                this.dom.currentTitle.textContent = 'Elige tu mix para comenzar';
+                this.rebuildPlaylistFromState();
+                if (this.playlist.length > 0) {
+                    this.currentIndex = 0;
+                    await this.loadSong(this.currentIndex, { autoplay: false });
+                } else {
+                    this.dom.currentTitle.textContent = 'No hay canciones disponibles';
+                }
             }
             this.setupMediaSession();
-
-            // Primera vez / sin Mix elegido todavía: forzar la selección
-            if (this.mixCategories.length === 0) {
-                this.openMixConfig();
-            }
         } catch (e) {
             console.error(e);
             this.showToast('x', 'Error al iniciar la app');
@@ -182,31 +268,153 @@ class MusicPlayer {
     }
 
     // ---------- MODO DESCARGAS ----------
-    // No es una página aparte: solo cambia la fuente de datos (catálogo → descargadas)
-    // y el header, manteniendo exactamente la misma interacción (Mix, categorías, lista).
-    async toggleDownloadsMode() {
-        this.downloadsMode = !this.downloadsMode;
-        document.body.classList.toggle('theme-downloads', this.downloadsMode);
-        buildFallingCircles(
-            document.getElementById('fallingCircles'),
-            this.downloadsMode ? CIRCLE_PALETTE_DOWNLOADS : CIRCLE_PALETTE_HOME,
-            16
-        );
-        this.dom.headerLabel.classList.toggle('show', this.downloadsMode);
-        this.dom.openDownloadsBtn.innerHTML = icon(this.downloadsMode ? 'arrowLeft' : 'download');
-        this.dom.openDownloadsBtn.title = this.downloadsMode ? 'Volver' : 'Descargadas';
+    // Se activa automáticamente al abrir la app sin conexión (tema rojo + solo
+    // canciones descargadas) y se puede volver al modo normal al recuperar conexión.
+    async enterDownloadsMode() {
+        this.downloadsMode = true;
+        document.body.classList.add('theme-downloads');
+        buildFallingCircles(document.getElementById('fallingCircles'), CIRCLE_PALETTE_DOWNLOADS, 16);
+        this.dom.headerLabel.classList.add('show');
 
-        if (this.downloadsMode) {
-            const keys = await this.db.getCacheKeys();
-            this.downloadedCatalog = keys.map(k => findByKey(k)).filter(Boolean);
-            if (this.downloadedCatalog.length === 0) {
-                this.showToast('download', 'Aún no tienes canciones descargadas');
-            }
-        } else {
-            this.downloadedCatalog = null;
-        }
+        const keys = await this.db.getCacheKeys();
+        this.downloadedCatalog = keys.map(k => findByKey(k)).filter(Boolean);
         this.rebuildPlaylistFromState();
+
+        if (this.playlist.length > 0) {
+            this.currentIndex = 0;
+            await this.loadSong(this.currentIndex, { autoplay: false });
+        } else {
+            this.dom.currentTitle.textContent = 'No tienes canciones descargadas';
+            this.showToast('download', 'Sin conexión y sin canciones descargadas');
+        }
         if (this.isListMode) this.switchListTab(this.activeListTab);
+    }
+    async exitDownloadsMode() {
+        if (!this.downloadsMode) return;
+        this.downloadsMode = false;
+        this.downloadedCatalog = null;
+        document.body.classList.remove('theme-downloads');
+        buildFallingCircles(document.getElementById('fallingCircles'), this.getHomeCirclePalette(), 16);
+        this.dom.headerLabel.classList.remove('show');
+        this.rebuildPlaylistFromState();
+        if (this.playlist.length > 0) {
+            this.currentIndex = 0;
+            await this.loadSong(this.currentIndex, { autoplay: false });
+        }
+        if (this.isListMode) this.switchListTab(this.activeListTab);
+        this.showToast('check', 'Conexión recuperada');
+    }
+
+    // ---------- CONFIGURACIÓN (Temas / Descargas / Agregar) ----------
+    openSettings() {
+        this.showSettingsView('menu');
+        this.dom.settingsModalOverlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    closeSettings() {
+        this.dom.settingsModalOverlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    showSettingsView(view) {
+        const views = {
+            menu: this.dom.settingsViewMenu,
+            themes: this.dom.settingsViewThemes,
+            downloads: this.dom.settingsViewDownloads,
+            add: this.dom.settingsViewAdd,
+        };
+        Object.entries(views).forEach(([key, el]) => { if (el) el.style.display = key === view ? 'block' : 'none'; });
+        const titles = { menu: 'Configuración', themes: 'Temas', downloads: 'Descargadas', add: 'Agregar canción' };
+        this.dom.settingsModalTitle.textContent = titles[view] || 'Configuración';
+        this.dom.settingsBackBtn.style.visibility = view === 'menu' ? 'hidden' : 'visible';
+        if (view === 'themes') this.renderThemeSwatches();
+        if (view === 'downloads') this.renderSettingsDownloads();
+    }
+
+    applyTheme(themeId, opts = {}) {
+        const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+        this.currentTheme = theme.id;
+        let tag = document.getElementById('dynamicThemeVars');
+        if (!tag) {
+            tag = document.createElement('style');
+            tag.id = 'dynamicThemeVars';
+            document.head.appendChild(tag);
+        }
+        tag.textContent = `:root{--primary:${theme.primary};--primary-icon:${theme.primaryIcon};--primary-deep:${theme.primaryDeep};--primary-chip:${theme.primaryChip};--primary-chip-2:${theme.primaryChip2};}`;
+        this.db.setMeta('theme', theme.id);
+        this.renderThemeSwatches();
+        // Las bolitas que caen también deben reflejar el tema elegido (excepto en
+        // modo Descargas, que siempre se ve en rojo).
+        if (!this.downloadsMode) {
+            buildFallingCircles(document.getElementById('fallingCircles'), this.getHomeCirclePalette(), 16);
+        }
+        if (!opts.silent) this.showToast('check', `Tema ${theme.label} aplicado`);
+    }
+    getHomeCirclePalette() {
+        const theme = THEMES.find(t => t.id === this.currentTheme) || THEMES[0];
+        return [
+            { base: theme.primaryDeep, light: theme.primaryChip },
+            { base: theme.primary,     light: theme.primaryChip2 },
+            { base: theme.primaryDeep, light: theme.primary },
+        ];
+    }
+    renderThemeSwatches() {
+        if (!this.dom.themeSwatchList) return;
+        this.dom.themeSwatchList.innerHTML = '';
+        THEMES.forEach(t => {
+            const el = document.createElement('button');
+            el.className = 'theme-swatch' + (this.currentTheme === t.id ? ' active' : '');
+            el.style.background = `linear-gradient(150deg, ${t.primaryChip}, ${t.primaryChip2})`;
+            el.title = t.label;
+            el.innerHTML = `<span class="ts-check">${icon('check')}</span>`;
+            el.addEventListener('click', () => this.applyTheme(t.id));
+            this.dom.themeSwatchList.appendChild(el);
+        });
+    }
+
+    async renderSettingsDownloads() {
+        const keys = await this.db.getCacheKeys();
+        const songs = keys.map(k => findByKey(k)).filter(Boolean);
+        await this.renderSongCards(this.dom.settingsDownloadsList, songs, {
+            emptyMsg: 'Aún no tienes canciones descargadas',
+            sourceIsTop: true
+        });
+    }
+
+    async submitSuggestion() {
+        const text = (this.dom.addSuggestionInput.value || '').trim();
+        if (!text) { this.showToast('x', 'Escribe algo antes de enviar'); return; }
+        if (!navigator.onLine) { this.showToast('wifiOff', 'Sin conexión: no se puede enviar ahora'); return; }
+        const btn = this.dom.addSuggestionSubmit;
+        const originalLabel = btn.textContent;
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        btn.textContent = 'Enviando...';
+        try {
+            await fetch(BACKEND_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ sheet: 'descargar', action: 'add', general: text })
+            });
+            this.dom.addSuggestionInput.value = '';
+            this.closeSettings();
+            this.showToast('check', '¡Sugerencia enviada!');
+        } catch (e) {
+            this.showToast('x', 'No se pudo enviar la sugerencia');
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('is-loading');
+            btn.textContent = originalLabel;
+        }
+    }
+
+    async reportPlaybackError(song, errorText) {
+        try {
+            await fetch(BACKEND_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ sheet: 'errores', action: 'add', url: `${errorText} — ${song ? song.url : 'canción desconocida'}` })
+            });
+        } catch (e) { /* no interrumpir la reproducción por un fallo al reportar */ }
     }
 
     updateCategoryBadge() {
@@ -234,6 +442,9 @@ class MusicPlayer {
     toggleListMode(open) {
         this.isListMode = open;
         this.dom.appShell.classList.toggle('list-mode', open);
+        // El filtro de búsqueda se limpia siempre al abrir y al cerrar el listado.
+        this.listSearchTerm = '';
+        if (this.dom.listSearchInput) this.dom.listSearchInput.value = '';
         if (open) this.switchListTab(this.activeListTab);
     }
     async switchListTab(tab) {
@@ -246,11 +457,22 @@ class MusicPlayer {
         } else {
             songs = this.getActivePool();
         }
-        await this.renderSongCards(this.dom.songListScroll, songs, {
-            emptyMsg: tab === 'top'
-                ? 'Aún no tienes canciones en tu TOP'
-                : (this.downloadsMode ? 'Aún no tienes canciones descargadas' : 'No hay canciones disponibles'),
-            sourceIsTop: tab === 'top'
+        this._currentTabSongs = songs;
+        this.renderFilteredList();
+    }
+    // Vuelve a pintar la lista actual aplicando el término de búsqueda, sin volver
+    // a consultar la base de datos.
+    renderFilteredList() {
+        const term = (this.listSearchTerm || '').trim().toLowerCase();
+        const source = this._currentTabSongs || [];
+        const songs = term ? source.filter(s => s.title.toLowerCase().includes(term)) : source;
+        this.renderSongCards(this.dom.songListScroll, songs, {
+            emptyMsg: term
+                ? 'No se encontraron canciones'
+                : (this.activeListTab === 'top'
+                    ? 'Aún no tienes canciones en tu TOP'
+                    : (this.downloadsMode ? 'Aún no tienes canciones descargadas' : 'No hay canciones disponibles')),
+            sourceIsTop: this.activeListTab === 'top'
         });
     }
 
@@ -283,6 +505,7 @@ class MusicPlayer {
                 this.isPlaying = true;
                 audio.play().catch(() => {
                     this.showToast('x', src.offline ? 'Error al reproducir' : 'No se pudo transmitir (sin conexión)');
+                    this.reportPlaybackError(song, 'No se pudo iniciar la reproducción');
                     this.isPlaying = false;
                     this.setPlayButtonState(false);
                 });
@@ -321,7 +544,10 @@ class MusicPlayer {
             this.isPlaying = false;
             this.setPlayButtonState(false);
         } else {
-            this.active.play().catch(() => this.showToast('x', 'No se puede reproducir'));
+            this.active.play().catch(() => {
+                this.showToast('x', 'No se puede reproducir');
+                this.reportPlaybackError(findByKey(this.active._songKey), 'No se pudo reanudar la reproducción');
+            });
             this.isPlaying = true;
             this.setPlayButtonState(true);
         }
@@ -408,6 +634,11 @@ class MusicPlayer {
 
     onAudioError(audio) {
         if (audio !== this.active) return;
+        const song = findByKey(audio._songKey);
+        const errCode = audio.error ? audio.error.code : null;
+        const errMap = { 1: 'Reproducción abortada', 2: 'Error de red', 3: 'Error al decodificar el audio', 4: 'Formato/fuente no soportada' };
+        const errorText = errMap[errCode] || 'Error desconocido de reproducción';
+        this.reportPlaybackError(song, errorText);
         this.showToast('x', audio._offline ? 'Error al reproducir' : 'No se pudo transmitir esta canción');
         if (!navigator.onLine) {
             this.tryPlayNextCached();
@@ -683,7 +914,7 @@ class MusicPlayer {
         if (e.key === ' ' || e.key === 'Space') { e.preventDefault(); this.togglePlay(); }
         if (e.key === 'ArrowRight') this.nextSong();
         if (e.key === 'ArrowLeft') this.prevSong();
-        if (e.key === 'Escape') { this.closeMixConfig(); this.toggleListMode(false); }
+        if (e.key === 'Escape') { this.closeMixConfig(); this.closeSettings(); this.toggleListMode(false); }
     }
 
     setupMediaSession() {
