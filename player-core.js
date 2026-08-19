@@ -53,6 +53,7 @@ class MusicPlayer {
 
         document.getElementById('settingsBackBtn').innerHTML = icon('arrowLeft');
         document.getElementById('settingsCloseBtn').innerHTML = icon('x');
+        document.getElementById('mixCloseBtn').innerHTML = icon('x');
         document.querySelector('#settingsGoThemes .smr-icon').innerHTML = icon('disc');
         document.querySelector('#settingsGoThemes .smr-arrow').innerHTML = icon('arrowLeft');
         document.querySelector('#settingsGoDownloads .smr-icon').innerHTML = icon('download');
@@ -90,6 +91,7 @@ class MusicPlayer {
             mixModalOverlay: document.getElementById('mixModalOverlay'),
             mixOptionsList: document.getElementById('mixOptionsList'),
             mixAcceptBtn: document.getElementById('mixAcceptBtn'),
+            mixCloseBtn: document.getElementById('mixCloseBtn'),
             songListView: document.getElementById('songListView'),
             songListScroll: document.getElementById('songListScroll'),
             listSearchInput: document.getElementById('listSearchInput'),
@@ -165,6 +167,7 @@ class MusicPlayer {
         });
 
         this.dom.categoryBadgeBtn.addEventListener('click', () => this.openMixConfig());
+        this.dom.mixCloseBtn.addEventListener('click', () => this.closeMixConfig());
         this.dom.tabAll.addEventListener('click', () => this.switchListTab('all'));
         this.dom.tabTop.addEventListener('click', () => this.switchListTab('top'));
 
@@ -174,6 +177,13 @@ class MusicPlayer {
         });
         window.addEventListener('offline', () => this.updateOfflineStatus());
         window.addEventListener('popstate', () => this.handleBackButton());
+        // Guardamos la posición al ocultar/cerrar la app. "visibilitychange" +
+        // "pagehide" cubren tanto minimizar/cambiar de app como cerrar la pestaña,
+        // y son más confiables en móvil que "beforeunload".
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') this.savePlaybackPosition();
+        });
+        window.addEventListener('pagehide', () => this.savePlaybackPosition());
         this.updateOfflineStatus();
     }
 
@@ -228,6 +238,54 @@ class MusicPlayer {
         this.showToast('check', 'Selector de categorías desbloqueado');
     }
 
+    // ---------- RECORDAR POSICIÓN DE REPRODUCCIÓN ----------
+    // Usamos localStorage (no IndexedDB) a propósito: la escritura es síncrona,
+    // así que se alcanza a guardar aunque el navegador cierre la pestaña/app justo
+    // después del evento (con IndexedDB, una transacción async podría no completarse a tiempo).
+    savePlaybackPosition() {
+        if (!this.active || !this.active._songKey) return;
+        try {
+            localStorage.setItem('mm_lastPlayback', JSON.stringify({
+                songKey: this.active._songKey,
+                currentTime: this.active.currentTime || 0,
+            }));
+        } catch (e) { /* almacenamiento no disponible (modo privado, etc.): no es crítico */ }
+    }
+    loadSavedPlaybackState() {
+        try {
+            const raw = localStorage.getItem('mm_lastPlayback');
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+    }
+    // Busca en la playlist actual la canción guardada y, si la encuentra, devuelve
+    // su índice; si no, 0 (primera canción) como respaldo.
+    resolveStartIndex(savedPlayback) {
+        if (savedPlayback && savedPlayback.songKey) {
+            const idx = this.playlist.findIndex(s => s.key === savedPlayback.songKey);
+            if (idx !== -1) return idx;
+        }
+        return 0;
+    }
+    // Se llama justo después de loadSong() en el arranque: si la canción cargada
+    // coincide con la guardada, salta al segundo exacto donde se había quedado.
+    resumeSavedPosition(savedPlayback) {
+        if (!savedPlayback || !savedPlayback.songKey) return;
+        if (!this.active || this.active._songKey !== savedPlayback.songKey) return;
+        if (!savedPlayback.currentTime || savedPlayback.currentTime < 3) return; // no vale la pena si apenas había empezado
+        const apply = () => {
+            if (this.active._songKey !== savedPlayback.songKey) return; // pudo cambiar mientras esperábamos metadata
+            const dur = this.active.duration;
+            if (isFinite(dur) && savedPlayback.currentTime < dur - 2) {
+                this.active.currentTime = savedPlayback.currentTime;
+                this.dom.currentTime.textContent = this.formatTime(this.active.currentTime);
+                const p = Math.max(0, Math.min(100, (savedPlayback.currentTime / dur) * 100));
+                this.dom.progressFill.style.width = `${p}%`;
+            }
+        };
+        if (this.active.readyState >= 1) apply();
+        else this.active.addEventListener('loadedmetadata', apply, { once: true });
+    }
+
     async initApp() {
         try {
             await this.db.init();
@@ -257,14 +315,19 @@ class MusicPlayer {
 
             this.updateCategoryBadge();
 
+            // Recordar por dónde iba: buscamos la última canción/segundo guardado
+            // para retomar ahí en vez de mandar siempre a la primera canción.
+            const savedPlayback = this.loadSavedPlaybackState();
+
             // Validar conexión al abrir: online -> catálogo normal, offline -> modo Descargas en rojo.
             if (!navigator.onLine) {
-                await this.enterDownloadsMode();
+                await this.enterDownloadsMode(savedPlayback);
             } else {
                 this.rebuildPlaylistFromState();
                 if (this.playlist.length > 0) {
-                    this.currentIndex = 0;
+                    this.currentIndex = this.resolveStartIndex(savedPlayback);
                     await this.loadSong(this.currentIndex, { autoplay: false });
+                    this.resumeSavedPosition(savedPlayback);
                 } else {
                     this.dom.currentTitle.textContent = 'No hay canciones disponibles';
                 }
@@ -318,7 +381,7 @@ class MusicPlayer {
     // ---------- MODO DESCARGAS ----------
     // Se activa automáticamente al abrir la app sin conexión (tema rojo + solo
     // canciones descargadas) y se puede volver al modo normal al recuperar conexión.
-    async enterDownloadsMode() {
+    async enterDownloadsMode(savedPlayback) {
         this.downloadsMode = true;
         document.body.classList.add('theme-downloads');
         buildFallingCircles(document.getElementById('fallingCircles'), CIRCLE_PALETTE_DOWNLOADS, 16);
@@ -329,8 +392,9 @@ class MusicPlayer {
         this.rebuildPlaylistFromState();
 
         if (this.playlist.length > 0) {
-            this.currentIndex = 0;
+            this.currentIndex = this.resolveStartIndex(savedPlayback);
             await this.loadSong(this.currentIndex, { autoplay: false });
+            this.resumeSavedPosition(savedPlayback);
         } else {
             this.dom.currentTitle.textContent = 'No tienes canciones descargadas';
             this.showToast('download', 'Sin conexión y sin canciones descargadas');
@@ -546,9 +610,9 @@ class MusicPlayer {
     // Vuelve a pintar la lista actual aplicando el término de búsqueda, sin volver
     // a consultar la base de datos.
     renderFilteredList() {
-        const term = (this.listSearchTerm || '').trim().toLowerCase();
+        const term = normalizeSearchText(this.listSearchTerm || '');
         const source = this._currentTabSongs || [];
-        const songs = term ? source.filter(s => s.title.toLowerCase().includes(term)) : source;
+        const songs = term ? source.filter(s => normalizeSearchText(s.title).includes(term)) : source;
         this.renderSongCards(this.dom.songListScroll, songs, {
             emptyMsg: term
                 ? 'No se encontraron canciones'
@@ -643,6 +707,7 @@ class MusicPlayer {
             if (this.crossfading) this.inactive.pause();
             this.isPlaying = false;
             this.setPlayButtonState(false);
+            this.savePlaybackPosition();
         } else {
             this.active.play().catch((err) => {
                 this.showToast('x', 'No se puede reproducir');
@@ -766,6 +831,13 @@ class MusicPlayer {
             this.dom.progressFill.style.width = `${p}%`;
             this.dom.currentTime.textContent = this.formatTime(audio.currentTime);
             this.dom.totalTime.textContent = this.formatTime(audio.duration);
+
+            // Guardamos la posición cada ~5s (no en cada "timeupdate") para no saturar
+            // el almacenamiento; así, si cierran la app, retoman cerca de donde iban.
+            if (!this._lastPosSaveAt || Date.now() - this._lastPosSaveAt > 5000) {
+                this._lastPosSaveAt = Date.now();
+                this.savePlaybackPosition();
+            }
 
             if (!audio._playCounted && audio.currentTime > 0.3) {
                 audio._playCounted = true;

@@ -25,7 +25,10 @@
 <!-- MINI MODAL: selector de Mix -->
 <div class="mini-modal-overlay" id="mixModalOverlay">
     <div class="mini-modal">
-        <div class="mini-modal-title">Elige tu mix</div>
+        <div class="mini-modal-header">
+            <div class="mini-modal-title">Elige tu mix</div>
+            <button class="settings-close-btn" id="mixCloseBtn"></button>
+        </div>
         <div id="mixOptionsList"></div>
         <button class="mix-accept-btn" id="mixAcceptBtn">Aceptar</button>
     </div>
@@ -56,6 +59,7 @@
                 <span class="smr-label">Agregar</span>
                 <span class="smr-arrow"></span>
             </button>
+            <div class="settings-version">Versión 1.0</div>
         </div>
 
         <div class="settings-view" id="settingsViewThemes" style="display:none;">

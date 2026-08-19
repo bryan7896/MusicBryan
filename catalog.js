@@ -23,6 +23,18 @@ function getRandomPortada() {
     return `https://picsum.photos/seed/music${seed}/400/400`;
 }
 
+// Normaliza texto para búsquedas: quita tildes/diacríticos, pasa a minúsculas y
+// elimina símbolos que no aporten (comillas, corchetes, puntuación), para que
+// "cancion", "Canción" o "CANCIÓN!" encuentren la misma coincidencia.
+function normalizeSearchText(str) {
+    return (str || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ') // símbolos raros -> espacio
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 // ---- Constantes de comportamiento del reproductor ----
 const RECALC_THRESHOLD = 40;
 const RECALC_INTERVAL = 10;
@@ -36,14 +48,14 @@ const BACKEND_URL = "https://script.google.com/macros/s/AKfycbwb-zPpnEEXUi0KS5ot
 // ---- Superficies (fondos/tarjetas/textos) según el modo del tema ----
 const SURFACES = {
     light: {
-        bottomBg: '#E2ECF8', trackColor: '#C1D9EB', controlBg: '#F1F6FD',
+        bottomBg: '#f8f7f7', trackColor: '#C1D9EB', controlBg: '#F1F6FD',
         toggleBg: '#DAE5F7', toggleActiveBg: '#BAC7DB', textOnBottom: '#5A6B85',
         surfaceBg: '#FFFFFF', surfaceText: '#2c1a66', surfaceBorder: '#ddd8f5', pillBg: '#F1F0FB',
     },
     dark: {
-        bottomBg: '#15111f', trackColor: '#332c4d', controlBg: '#221d33',
-        toggleBg: '#2b2440', toggleActiveBg: '#3a3358', textOnBottom: '#c7c1e0',
-        surfaceBg: '#1d1830', surfaceText: '#f0ecff', surfaceBorder: '#3d3660', pillBg: '#28223d',
+        bottomBg: '#c1c1c1', trackColor: '#C1D9EB', controlBg: '#F1F6FD',
+        toggleBg: '#DAE5F7', toggleActiveBg: '#BAC7DB', textOnBottom: '#5A6B85',
+        surfaceBg: '#FFFFFF', surfaceText: '#2c1a66', surfaceBorder: '#ddd8f5', pillBg: '#F1F0FB',
     },
 };
 
@@ -55,5 +67,5 @@ const THEMES = [
     { id: 'rosa',    label: 'Rosa',    mode: 'light', primary: '#FF6FA8', primaryIcon: '#FF6FA8', primaryDeep: '#E14F8A', primaryChip: '#FFA8C8', primaryChip2: '#FF8CB8' },
     { id: 'naranja', label: 'Naranja', mode: 'light', primary: '#FF7A3D', primaryIcon: '#FF7A3D', primaryDeep: '#E0611F', primaryChip: '#FFA366', primaryChip2: '#ff8c4d' },
     { id: 'rojo',    label: 'Rojo',    mode: 'light', primary: '#E5484D', primaryIcon: '#E5484D', primaryDeep: '#C13438', primaryChip: '#FF7A7E', primaryChip2: '#F45D62' },
-    { id: 'oscuro',  label: 'Oscuro',  mode: 'dark',  primary: '#8B7CFF', primaryIcon: '#8B7CFF', primaryDeep: '#6C5EE0', primaryChip: '#A69BFF', primaryChip2: '#8778f0' },
+    { id: 'oscuro',  label: 'Oscuro',  mode: 'dark',  primary: '#1b1452', primaryIcon: '#1b1452', primaryDeep: '#261d6c', primaryChip: '#30267f', primaryChip2: '#5245b4' },
 ];
