@@ -18,6 +18,11 @@ class MusicPlayer {
         this.isDragging = false;
         this.isListMode = false;
         this.activeListTab = 'all';
+        // Índice en memoria de canciones descargadas (key -> Blob). Existe para que
+        // resolveSource() pueda responder sin "await": si loadSong() espera una
+        // lectura async de IndexedDB antes de llamar audio.play(), el navegador
+        // pierde el "gesto del usuario" (el click) y bloquea la reproducción.
+        this.cachedBlobMap = new Map();
         this.downloadsMode = false;
         this.downloadedCatalog = null;
         this.shuffleHistory = [];
@@ -245,6 +250,10 @@ class MusicPlayer {
 
             const allStats = await this.db.getAllStats();
             allStats.forEach(s => this.statsCache.set(s.key, s));
+
+            // Necesario ANTES de cargar la primera canción: así resolveSource()
+            // puede resolver de forma síncrona si hay una versión descargada.
+            await this.refreshCachedBlobIndex();
 
             this.updateCategoryBadge();
 
@@ -551,17 +560,28 @@ class MusicPlayer {
     }
 
     // ---------- CARGA Y REPRODUCCIÓN ----------
-    async resolveSource(song) {
-        const blob = await this.db.getCachedBlob(song.key);
+    // SIN "async/await" a propósito: si esto esperara una lectura de IndexedDB,
+    // el tiempo transcurrido entre el click del usuario y el audio.play() rompería
+    // el "gesto del usuario" y el navegador bloquearía la reproducción.
+    resolveSource(song) {
+        const blob = this.cachedBlobMap.get(song.key);
         if (blob) return { url: URL.createObjectURL(blob), offline: true };
         return { url: song.url, offline: false };
+    }
+    async refreshCachedBlobIndex() {
+        this.cachedBlobMap.clear();
+        const keys = await this.db.getCacheKeys();
+        for (const key of keys) {
+            const blob = await this.db.getCachedBlob(key);
+            if (blob) this.cachedBlobMap.set(key, blob);
+        }
     }
 
     async loadSong(index, opts = {}) {
         const song = this.playlist[index];
         if (!song) return;
         const autoplay = opts.autoplay !== undefined ? opts.autoplay : this.isPlaying;
-        const src = await this.resolveSource(song);
+        const src = this.resolveSource(song);
         const audio = opts.targetAudio || this.active;
         audio.src = src.url;
         audio.volume = 1;
@@ -577,9 +597,10 @@ class MusicPlayer {
             this.updateSongUI(song, src.offline);
             if (autoplay) {
                 this.isPlaying = true;
-                audio.play().catch(() => {
+                audio.play().catch((err) => {
                     this.showToast('x', src.offline ? 'Error al reproducir' : 'No se pudo transmitir (sin conexión)');
-                    this.reportPlaybackError(song, 'No se pudo iniciar la reproducción');
+                    const reason = err && err.name ? `No se pudo iniciar la reproducción (${err.name})` : 'No se pudo iniciar la reproducción';
+                    this.reportPlaybackError(song, reason);
                     this.isPlaying = false;
                     this.setPlayButtonState(false);
                 });
@@ -623,9 +644,10 @@ class MusicPlayer {
             this.isPlaying = false;
             this.setPlayButtonState(false);
         } else {
-            this.active.play().catch(() => {
+            this.active.play().catch((err) => {
                 this.showToast('x', 'No se puede reproducir');
-                this.reportPlaybackError(findByKey(this.active._songKey), 'No se pudo reanudar la reproducción');
+                const reason = err && err.name ? `No se pudo reanudar la reproducción (${err.name})` : 'No se pudo reanudar la reproducción';
+                this.reportPlaybackError(findByKey(this.active._songKey), reason);
             });
             this.isPlaying = true;
             this.setPlayButtonState(true);
@@ -770,7 +792,7 @@ class MusicPlayer {
         this._crossfadeNextIndex = nextIdx;
         const nextSong = this.playlist[nextIdx];
         const target = this.inactive;
-        const src = await this.resolveSource(nextSong);
+        const src = this.resolveSource(nextSong);
         target.src = src.url;
         target._songKey = nextSong.key;
         target._offline = src.offline;
@@ -824,7 +846,7 @@ class MusicPlayer {
                 if (navigator.onLine) { await this.ensureCached(song); this.updateDownloadUI(true); }
             } else {
                 const stillTop = this.topScored.includes(song.key);
-                if (!stillTop && !st.manualDownload) { await this.db.deleteCachedBlob(song.key); this.updateDownloadUI(false); }
+                if (!stillTop && !st.manualDownload) { await this.db.deleteCachedBlob(song.key); this.cachedBlobMap.delete(song.key); this.updateDownloadUI(false); }
             }
         });
     }
@@ -888,20 +910,21 @@ class MusicPlayer {
         const manualKeys = new Set(allStats.filter(s => s.manualDownload).map(s => s.key));
         const cacheKeys = await this.db.getCacheKeys();
         for (const key of cacheKeys) {
-            if (!likedKeys.has(key) && !manualKeys.has(key) && !scored.includes(key)) await this.db.deleteCachedBlob(key);
+            if (!likedKeys.has(key) && !manualKeys.has(key) && !scored.includes(key)) { await this.db.deleteCachedBlob(key); this.cachedBlobMap.delete(key); }
         }
         this.showToast('star', 'Tu TOP se actualizó con tus gustos');
     }
 
     async ensureCached(song) {
-        const existing = await this.db.getCachedBlob(song.key);
-        if (existing) return true;
+        const existing = this.cachedBlobMap.get(song.key) || await this.db.getCachedBlob(song.key);
+        if (existing) { this.cachedBlobMap.set(song.key, existing); return true; }
         if (!navigator.onLine) return false;
         try {
             const resp = await fetch(song.url);
             if (!resp.ok) return false;
             const blob = await resp.blob();
             await this.db.cacheBlob(song.key, blob);
+            this.cachedBlobMap.set(song.key, blob);
             return true;
         } catch (e) { return false; }
     }
@@ -931,7 +954,7 @@ class MusicPlayer {
         st.manualDownload = false;
         await this.saveStats(st);
         const stillNeeded = st.liked || this.topScored.includes(song.key);
-        if (!stillNeeded) await this.db.deleteCachedBlob(song.key);
+        if (!stillNeeded) { await this.db.deleteCachedBlob(song.key); this.cachedBlobMap.delete(song.key); }
         this.showToast('trash', `"${song.title}" ya no está descargada`);
     }
 
