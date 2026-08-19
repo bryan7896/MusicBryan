@@ -45,6 +45,13 @@ Object.assign(MusicPlayer.prototype, {
 
     // ---------- TARJETAS DE CANCIONES (usadas en list-mode y en Descargadas) ----------
     async renderSongCards(container, songs, { emptyMsg, sourceIsTop }) {
+        // Token de carrera: si se llama de nuevo antes de que termine este render
+        // (p. ej. dos cambios de pool casi simultáneos), el render viejo se aborta
+        // en vez de seguir agregando tarjetas y duplicar el listado.
+        this._listRenderTokens = this._listRenderTokens || new WeakMap();
+        const token = Symbol();
+        this._listRenderTokens.set(container, token);
+
         container.innerHTML = '';
         if (!songs || songs.length === 0) {
             container.innerHTML = `<div class="modal-empty">${icon('folderPlus')}${emptyMsg || 'No hay canciones'}</div>`;
@@ -55,6 +62,7 @@ Object.assign(MusicPlayer.prototype, {
             const def = CATS[song.category];
             const st = await this.getStatsFor(song.key);
             const cached = await this.db.getCachedBlob(song.key);
+            if (this._listRenderTokens.get(container) !== token) return; // un render más nuevo tomó el control
             const isActive = currentSong && song.key === currentSong.key && this.isPlaying;
             const card = document.createElement('div');
             card.className = `song-card ${isActive ? 'pressed' : ''}`;

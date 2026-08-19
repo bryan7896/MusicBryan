@@ -127,6 +127,10 @@ class MusicPlayer {
         document.addEventListener('touchmove', (e) => this.drag(e));
         document.addEventListener('mouseup', () => this.endDrag());
         document.addEventListener('touchend', () => this.endDrag());
+        // Si el navegador cancela el toque (por ejemplo, lo interpreta como scroll),
+        // "touchend" nunca llega y el arrastre quedaba atascado, congelando la barra.
+        document.addEventListener('touchcancel', () => this.endDrag());
+        window.addEventListener('blur', () => this.endDrag());
         document.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         this.dom.openPlaylistBtn.addEventListener('click', () => {
@@ -257,6 +261,10 @@ class MusicPlayer {
                 }
             }
             this.setupMediaSession();
+            // Poblamos la lista desde el arranque: en web la biblioteca siempre
+            // está visible (no hay botón para "abrirla"), así que no puede depender
+            // de que el usuario la abra manualmente para tener contenido.
+            this.switchListTab(this.activeListTab);
         } catch (e) {
             console.error(e);
             this.showToast('x', 'Error al iniciar la app');
@@ -318,7 +326,7 @@ class MusicPlayer {
             this.dom.currentTitle.textContent = 'No tienes canciones descargadas';
             this.showToast('download', 'Sin conexión y sin canciones descargadas');
         }
-        if (this.isListMode) this.switchListTab(this.activeListTab);
+        this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
     }
     async exitDownloadsMode() {
         if (!this.downloadsMode) return;
@@ -332,7 +340,7 @@ class MusicPlayer {
             this.currentIndex = 0;
             await this.loadSong(this.currentIndex, { autoplay: false });
         }
-        if (this.isListMode) this.switchListTab(this.activeListTab);
+        this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
         this.showToast('check', 'Conexión recuperada');
     }
 
@@ -367,13 +375,31 @@ class MusicPlayer {
     applyTheme(themeId, opts = {}) {
         const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
         this.currentTheme = theme.id;
+        const surf = SURFACES[theme.mode] || SURFACES.light;
         let tag = document.getElementById('dynamicThemeVars');
         if (!tag) {
             tag = document.createElement('style');
             tag.id = 'dynamicThemeVars';
             document.head.appendChild(tag);
         }
-        tag.textContent = `:root{--primary:${theme.primary};--primary-icon:${theme.primaryIcon};--primary-deep:${theme.primaryDeep};--primary-chip:${theme.primaryChip};--primary-chip-2:${theme.primaryChip2};}`;
+        tag.textContent = `:root{` +
+            `--primary:${theme.primary};` +
+            `--primary-icon:${theme.primaryIcon};` +
+            `--primary-deep:${theme.primaryDeep};` +
+            `--primary-chip:${theme.primaryChip};` +
+            `--primary-chip-2:${theme.primaryChip2};` +
+            `--bottom-bg:${surf.bottomBg};` +
+            `--track-color:${surf.trackColor};` +
+            `--control-bg:${surf.controlBg};` +
+            `--toggle-bg:${surf.toggleBg};` +
+            `--toggle-active-bg:${surf.toggleActiveBg};` +
+            `--text-on-bottom:${surf.textOnBottom};` +
+            `--surface-bg:${surf.surfaceBg};` +
+            `--surface-text:${surf.surfaceText};` +
+            `--surface-border:${surf.surfaceBorder};` +
+            `--pill-bg:${surf.pillBg};` +
+        `}`;
+        document.body.classList.toggle('theme-dark', theme.mode === 'dark');
         this.db.setMeta('theme', theme.id);
         this.renderThemeSwatches();
         // Las bolitas que caen también deben reflejar el tema elegido (excepto en
@@ -395,13 +421,20 @@ class MusicPlayer {
         if (!this.dom.themeSwatchList) return;
         this.dom.themeSwatchList.innerHTML = '';
         THEMES.forEach(t => {
+            const item = document.createElement('div');
+            item.className = 'theme-swatch-item';
             const el = document.createElement('button');
             el.className = 'theme-swatch' + (this.currentTheme === t.id ? ' active' : '');
             el.style.background = `linear-gradient(150deg, ${t.primaryChip}, ${t.primaryChip2})`;
             el.title = t.label;
             el.innerHTML = `<span class="ts-check">${icon('check')}</span>`;
             el.addEventListener('click', () => this.applyTheme(t.id));
-            this.dom.themeSwatchList.appendChild(el);
+            const label = document.createElement('div');
+            label.className = 'theme-swatch-label';
+            label.textContent = t.label;
+            item.appendChild(el);
+            item.appendChild(label);
+            this.dom.themeSwatchList.appendChild(item);
         });
     }
 
@@ -554,7 +587,7 @@ class MusicPlayer {
             } else {
                 this.setPlayButtonState(false);
             }
-            if (this.isListMode) this.switchListTab(this.activeListTab);
+            this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
         }
         return audio;
     }
@@ -567,6 +600,11 @@ class MusicPlayer {
         this.getStatsFor(song.key).then(st => this.updateFavoriteUI(st.liked));
         this.db.getCachedBlob(song.key).then(blob => this.updateDownloadUI(!!blob));
         this.updateMediaSessionMeta(song);
+        // Reiniciamos la barra de progreso: si no la reseteamos aquí, se queda mostrando
+        // el avance de la canción anterior hasta que llegue el primer "timeupdate" de la nueva.
+        this.dom.progressFill.style.width = '0%';
+        this.dom.currentTime.textContent = '0:00';
+        this.dom.totalTime.textContent = '0:00';
     }
 
     setPlayButtonState(playing) {
@@ -701,8 +739,8 @@ class MusicPlayer {
 
     onTimeUpdate(audio) {
         if (audio !== this.active) return;
-        if (!this.isDragging && audio.duration) {
-            const p = (audio.currentTime / audio.duration) * 100;
+        if (!this.isDragging && audio.duration && isFinite(audio.duration)) {
+            const p = Math.max(0, Math.min(100, (audio.currentTime / audio.duration) * 100));
             this.dom.progressFill.style.width = `${p}%`;
             this.dom.currentTime.textContent = this.formatTime(audio.currentTime);
             this.dom.totalTime.textContent = this.formatTime(audio.duration);
@@ -770,7 +808,7 @@ class MusicPlayer {
         this.currentIndex = this._crossfadeNextIndex;
         const song = this.playlist[this.currentIndex];
         this.updateSongUI(song, newAudio._offline);
-        if (this.isListMode) this.switchListTab(this.activeListTab);
+        this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
     }
 
     toggleFavorite() {
