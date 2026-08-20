@@ -21,7 +21,6 @@ const CRISTIANS = [
     { title: "Bueno es alabarte senor danilo montero", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/Bueno%20es%20alabarte%20senor%20danilo%20montero.mp3" },
     { title: "Cambiaste mi corazon", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/Cambiaste%20mi%20corazon.mp3" },
     { title: "Causas perdidas feat ulises eyherabide", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/Causas%20perdidas%20feat%20ulises%20eyherabide.mp3" },
-    { title: "Curame", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/Curame.mp3" },
     { title: "De buenas", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/De%20buenas.mp3" },
     { title: "De ti dependo", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/De%20ti%20dependo.mp3" },
     { title: "Dios de imposibles", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/Dios%20de%20imposibles.mp3" },
