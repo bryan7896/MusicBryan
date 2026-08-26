@@ -5,6 +5,7 @@ const CRISTIANS = [
     { title: "En sus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/En%20sus%20manos%20está.mp3" },
     { title: "Tu proveerás", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Tu%20proveerás.mp3" },
     { title: "Mis planes en tus manos está", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Mis%20planes%20en%20tus%20manos%20está.mp3" },
+    { title: "Duo noe y ruth campos la manana gloriosa", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Duo%20noe%20y%20ruth%20campos%20la%20manana%20gloriosa.mp3" },
     { title: "Guiame tú", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/Guiame%20tú.mp3" },
     { title: "A la sombra de tus alas version alternativa deep hause mlavida", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/A%20la%20sombra%20de%20tus%20alas%20version%20alternativa%20deep%20hause%20mlavida.mp3" },
     { title: "A quien ire", url: "https://raw.githubusercontent.com/bryan7896/musica1/main/A%20quien%20ire.mp3" },
@@ -356,7 +357,7 @@ const CRISTIANS = [
     { title: "me gusta estar en tu casa", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/me%20gusta%20estar%20en%20tu%20casa.mp3" },
     { title: "porque el senor todopoderoso reina marco barrientos en ti 1991", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/porque%20el%20senor%20todopoderoso%20reina%20marco%20barrientos%20en%20ti%201991.mp3" },
     { title: "sera llena la tierra marco barrientos en ti 1991", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/sera%20llena%20la%20tierra%20marco%20barrientos%20en%20ti%201991.mp3" },
-    { title: "tu habitas marco barrientos en ti 1991", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/tu%20habitas%20marco%20barrientos%20en%20ti%201991.mp3" },
+    { title: "tu habitas marco barrientos en ti 1991", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/tu%20habitas%20marco%20barrientos%20en%20ti%201991.mp3" }
 ];
 
 const MIAS = [
@@ -428,4 +429,5 @@ const GYM = [
     { title: "TECHNO  NO BATIDA.mp3", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/MusicaGym/TECHNO%20%20NO%20BATIDA.mp3" },
     { title: "The Black Eyed Peas - The Time.mp3", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/MusicaGym/The%20Black%20Eyed%20Peas%20-%20The%20Time.mp3" },
     { title: "Toby DEE, Tony Richard, SANE - Toccata.mp3", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/MusicaGym/Toby%20DEE,%20Tony%20Richard,%20SANE%20-%20Toccata.mp3" },
+    { title: "El cuarteto de nos enamorado tuyo", url: "https://raw.githubusercontent.com/bryan7896/MusicBryan/main/Music/El%20cuarteto%20de%20nos%20enamorado%20tuyo.mp3" },
 ];
