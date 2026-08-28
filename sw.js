@@ -7,7 +7,7 @@
 // requests) para buffer progresivo y saltos en la barra.
 // ============================================
 
-const CACHE_NAME = 'music-player-shell-v18';
+const CACHE_NAME = 'music-player-shell-v19';
 const OFFLINE_URL = 'index.html';
 
 const STATIC_ASSETS = [

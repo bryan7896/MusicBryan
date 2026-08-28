@@ -321,7 +321,6 @@ const CRISTIANS = [
     { title: "Porque el vive gospel 1945 himno antiguo", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Porque%20el%20vive%20gospel%201945%20himno%20antiguo.mp3" },
     { title: "Quien nos separara", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Quien%20nos%20separara.mp3" },
     { title: "Quiero llenar tu trono de alabanza con", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Quiero%20llenar%20tu%20trono%20de%20alabanza%20con.mp3" },
-    { title: "Rene gonzales no digas no", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Rene%20gonzales%20no%20digas%20no.mp3" },
     { title: "Rey de toda nacion", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Rey%20de%20toda%20nacion.mp3" },
     { title: "Rojo jardin de rosas", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Rojo%20jardin%20de%20rosas.mp3" },
     { title: "Rojo solo tu", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Rojo%20solo%20tu.mp3" },
