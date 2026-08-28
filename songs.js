@@ -315,7 +315,6 @@ const CRISTIANS = [
     { title: "Oh tu fidelidad himno cristiano", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Oh%20tu%20fidelidad%20himno%20cristiano.mp3" },
     { title: "Omnipotente", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Omnipotente.mp3" },
     { title: "Palabra en accion va ver un avivamiento en este lugar", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Palabra%20en%20accion%20va%20ver%20un%20avivamiento%20en%20este%20lugar.mp3" },
-    { title: "Paz en la tierra rene gonzales", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Paz%20en%20la%20tierra%20rene%20gonzales.mp3" },
     { title: "Pecador ven a cristo jesus con himnos cristianos antiguos", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Pecador%20ven%20a%20cristo%20jesus%20con%20himnos%20cristianos%20antiguos.mp3" },
     { title: "People get free hillsong worship", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/People%20get%20free%20hillsong%20worship.mp3" },
     { title: "Porque el vive gospel 1945 himno antiguo", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Porque%20el%20vive%20gospel%201945%20himno%20antiguo.mp3" },
