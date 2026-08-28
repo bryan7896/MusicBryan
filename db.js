@@ -82,6 +82,15 @@ class MusicDB {
             req.onerror = () => resolve([]);
         });
     }
+    // Igual que getCacheKeys() pero incluye cachedAt, para poder decidir cuál
+    // entrada liberar primero cuando se llega al tope de descargas (MAX_DOWNLOADS).
+    async getCacheEntries() {
+        return new Promise((resolve) => {
+            const req = this._tx('cache').getAll();
+            req.onsuccess = () => resolve((req.result || []).map(r => ({ key: r.key, cachedAt: r.cachedAt || 0 })));
+            req.onerror = () => resolve([]);
+        });
+    }
     async getCacheTotalSize() {
         return new Promise((resolve) => {
             const req = this._tx('cache').getAll();

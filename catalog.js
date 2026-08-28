@@ -41,6 +41,8 @@ const RECALC_INTERVAL = 10;
 const FADE_SECONDS = 4.5;
 const SKIP_RATIO = 0.30;
 const COMPLETE_RATIO = 0.90;
+const MAX_DOWNLOADS = 30; // tope de canciones guardadas en caché (auto + manuales)
+const STALL_TIMEOUT_MS = 3000; // si el audio activo se queda "esperando" datos más de esto, reintentamos
 
 // ---- Backend (Google Apps Script) ----
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbwb-zPpnEEXUi0KS5otL5xtDuhgIErrKciyqGF7uwgnw4mIrrXDA_9UZlTQIgoUm2A1/exec";
