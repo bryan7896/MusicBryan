@@ -42,7 +42,17 @@ const FADE_SECONDS = 4.5;
 const SKIP_RATIO = 0.30;
 const COMPLETE_RATIO = 0.90;
 const MAX_DOWNLOADS = 30; // tope de canciones guardadas en caché (auto + manuales)
-const STALL_TIMEOUT_MS = 3000; // si el audio activo se queda "esperando" datos más de esto, reintentamos
+const STALL_TIMEOUT_MS = 8000; // tiempo sin datos antes de intervenir (3s era tan corto que recargar la fuente descartaba el buffer y empeoraba el atasco)
+const STALL_MAX_RELOADS = 2; // recargas de la fuente por canción atascada antes de rendirse y pasar a la siguiente
+const MAX_CONSECUTIVE_FAILURES = 3; // fallos seguidos que se toleran antes de detener la reproducción (antes se saltaba hasta recorrer TODA la lista)
+const PRELOAD_SECONDS = 25; // cuántos segundos antes del final se empieza a descargar la siguiente canción
+const ERROR_REPORT_COOLDOWN_MS = 10 * 60 * 1000; // no reportar el mismo error de la misma canción más de una vez en este lapso
+const MAX_ERROR_REPORTS_PER_SESSION = 40; // tope de reportes al backend por sesión
+
+// iOS/Safari ignora audio.volume (siempre vale 1): ahí un crossfade sería solo superponer dos canciones al 100%.
+const VOLUME_CONTROL = (() => {
+    try { const a = new Audio(); a.volume = 0.5; return a.volume === 0.5; } catch (e) { return false; }
+})();
 
 // ---- Backend (Google Apps Script) ----
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbwb-zPpnEEXUi0KS5otL5xtDuhgIErrKciyqGF7uwgnw4mIrrXDA_9UZlTQIgoUm2A1/exec";

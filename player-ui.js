@@ -30,10 +30,21 @@ Object.assign(MusicPlayer.prototype, {
             if (chosen.length === 0) { this.showToast('x', 'Selecciona al menos una categoría'); return; }
             this.mixCategories = chosen;
             this.db.setMeta('mixCategories', chosen);
-            this.rebuildPlaylistFromState();
+            // setQueue cancela el crossfade/precarga y el historial de la selección anterior;
+            // sin eso, una canción de la sección vieja seguía "colándose" al terminar la actual.
+            this.setQueue(this.getActivePool(), null, { shuffleStart: true });
             this.updateCategoryBadge();
             this.closeMixConfig();
-            this.startPlayback();
+            if (this.playlist.length > 0) {
+                this.startPlayback();
+            } else {
+                // La nueva selección no tiene canciones: no dejar sonando la de la anterior.
+                this.isPlaying = false;
+                this.active.pause();
+                this.setPlayButtonState(false);
+                this.dom.currentTitle.textContent = this.downloadsMode ? 'No tienes canciones descargadas en este mix' : 'No hay canciones disponibles';
+            }
+            this.switchListTab(this.activeListTab);
         };
     },
     closeMixConfig() {
@@ -44,7 +55,9 @@ Object.assign(MusicPlayer.prototype, {
     },
 
     // ---------- TARJETAS DE CANCIONES (usadas en list-mode y en Descargadas) ----------
-    async renderSongCards(container, songs, { emptyMsg, sourceIsTop }) {
+    // scope: 'pool' (pestaña Todas), 'top' (pestaña TOP) o 'downloads' (Configuración).
+    // Define de dónde sale la cola al tocar una tarjeta.
+    async renderSongCards(container, songs, { emptyMsg, scope = 'pool' }) {
         // Token de carrera: si se llama de nuevo antes de que termine este render
         // (p. ej. dos cambios de pool casi simultáneos), el render viejo se aborta
         // en vez de seguir agregando tarjetas y duplicar el listado.
@@ -58,14 +71,25 @@ Object.assign(MusicPlayer.prototype, {
             return;
         }
         const currentSong = this.playlist[this.currentIndex];
-        for (const song of songs) {
+        // Lecturas en paralelo y UNA sola consulta de llaves en caché. Antes eran dos
+        // awaits por canción, y getCachedBlob traía el MP3 completo desde IndexedDB
+        // solo para saber si estaba descargado.
+        const [statsList, cachedKeys] = await Promise.all([
+            Promise.all(songs.map(s => this.getStatsFor(s.key))),
+            this.db.getCacheKeys(),
+        ]);
+        if (this._listRenderTokens.get(container) !== token) return; // un render más nuevo tomó el control
+        const cachedSet = new Set(cachedKeys);
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < songs.length; i++) {
+            const song = songs[i];
             const def = CATS[song.category];
-            const st = await this.getStatsFor(song.key);
-            const cached = await this.db.getCachedBlob(song.key);
-            if (this._listRenderTokens.get(container) !== token) return; // un render más nuevo tomó el control
+            const st = statsList[i];
+            const cached = cachedSet.has(song.key);
             const isActive = currentSong && song.key === currentSong.key && this.isPlaying;
             const card = document.createElement('div');
             card.className = `song-card ${isActive ? 'pressed' : ''}`;
+            card.dataset.key = song.key; // permite resaltar la actual sin reconstruir la lista
             card.innerHTML = `
                 <span class="sc-icon">${icon(def.icon)}</span>
                 <span class="sc-title">${song.title}</span>
@@ -74,12 +98,7 @@ Object.assign(MusicPlayer.prototype, {
             `;
             card.addEventListener('click', (e) => {
                 if (e.target.closest('.sc-mini-btn')) return;
-                // Usamos siempre la lista ya filtrada que se está mostrando (respeta el
-                // Mix/categoría seleccionada), nunca el catálogo completo sin filtrar.
-                this.playlist = songs.slice();
-                this.currentIndex = this.playlist.findIndex(s => s.key === song.key);
-                this.stopCrossfadeState();
-                this.loadSong(this.currentIndex, { autoplay: true });
+                this.playFromList(song, songs, scope);
                 // Al elegir una canción, siempre volvemos a la pantalla de reproducción.
                 if (this.isListMode) this.toggleListMode(false);
                 if (this.dom.settingsModalOverlay && this.dom.settingsModalOverlay.classList.contains('show')) this.closeSettings();
@@ -94,7 +113,8 @@ Object.assign(MusicPlayer.prototype, {
                     likeBtn.innerHTML = icon('heart', st.liked ? 'icon-filled' : '');
                     this.showToast('heart', st.liked ? 'Agregado a tu TOP' : 'Eliminado de favoritos');
                     if (st.liked && navigator.onLine) await this.ensureCached(song);
-                    if (currentSong && song.key === currentSong.key) this.updateFavoriteUI(st.liked);
+                    const nowSong = this.playlist[this.currentIndex]; // la actual AL MOMENTO del click, no al pintar la lista
+                    if (nowSong && song.key === nowSong.key) this.updateFavoriteUI(st.liked);
                 })
             }
             const dlBtn = card.querySelector('.sc-dl');
@@ -102,10 +122,32 @@ Object.assign(MusicPlayer.prototype, {
                 e.stopPropagation();
                 if (dlBtn.classList.contains('toggle-pressed')) return;
                 await this.downloadManually(song, dlBtn);
-                if (currentSong && song.key === currentSong.key) this.updateDownloadUI(true);
+                const nowSong = this.playlist[this.currentIndex];
+                if (nowSong && song.key === nowSong.key) this.updateDownloadUI(true);
             });
-            container.appendChild(card);
+            frag.appendChild(card);
         }
+        container.appendChild(frag);
+    },
+
+    // Arma la cola al tocar una tarjeta. La cola respeta SIEMPRE el Mix elegido:
+    //  - 'pool': todo el pool activo (no solo lo que deja visible el buscador).
+    //  - 'top': la lista TOP vigente.
+    //  - 'downloads': descargadas del Mix; si la tocada no es del Mix, solo su categoría.
+    playFromList(song, listedSongs, scope) {
+        let queue;
+        if (scope === 'top') {
+            queue = (this._currentTabSongs && this._currentTabSongs.some(s => s.key === song.key)) ? this._currentTabSongs : listedSongs;
+        } else if (scope === 'downloads') {
+            queue = listedSongs.filter(s => this.mixCategories.includes(s.category));
+            if (!queue.some(s => s.key === song.key)) queue = listedSongs.filter(s => s.category === song.category);
+        } else {
+            const pool = this.getActivePool();
+            queue = pool.some(s => s.key === song.key) ? pool : listedSongs;
+        }
+        this._consecutiveLoadFailures = 0;
+        const idx = this.setQueue(queue, song.key);
+        this.loadSong(idx, { autoplay: true });
     },
 
 });

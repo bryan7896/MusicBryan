@@ -16,7 +16,17 @@ class MusicPlayer {
         this.isShuffle = true; // por defecto activo (se confirma/ajusta con lo guardado en initApp)
         this.isRepeat = false;
         this._loadSeq = 0; // token para invalidar reproducciones "play()" que quedaron obsoletas por un salto rápido
-        this._consecutiveLoadFailures = 0; // corta la cadena de "saltar a la siguiente" si TODAS fallan
+        this._consecutiveLoadFailures = 0; // corta la cadena de "saltar a la siguiente" si fallan varias seguidas
+        this._fadeToken = 0;          // invalida play()/promesas pendientes de un crossfade cancelado
+        this._preload = null;         // { idx, key, audio, failed, starting } de la siguiente canción precargada
+        this._nextIdx = null;         // "siguiente canción" ya decidida (la misma para precarga y para nextSong)
+        this.recentKeys = [];         // últimas canciones sonadas (para que el aleatorio no las repita enseguida)
+        this._badUntil = new Map();   // key -> timestamp hasta el que se evita una canción que falló
+        this._stallTimer = null;
+        this._resumeOnReconnect = false;
+        this._ignorePauseUntil = 0;
+        this._reportedErrors = new Map();
+        this._reportCount = 0;
         this.isDragging = false;
         this.isListMode = false;
         this.activeListTab = 'all';
@@ -134,6 +144,9 @@ class MusicPlayer {
             // vez de dejarla congelada indefinidamente.
             a.addEventListener('waiting', () => this.onAudioWaiting(a));
             a.addEventListener('playing', () => this.onAudioPlaying(a));
+            // Pausas/reanudaciones hechas por el sistema (llamadas, auriculares, notificación).
+            a.addEventListener('pause', () => this.onAudioPause(a));
+            a.addEventListener('play', () => this.onAudioPlay(a));
         });
         this.dom.progressBar.addEventListener('mousedown', (e) => this.startDrag(e));
         this.dom.progressBar.addEventListener('touchstart', (e) => this.startDrag(e));
@@ -181,6 +194,7 @@ class MusicPlayer {
         window.addEventListener('online', () => {
             this.updateOfflineStatus();
             if (this.downloadsMode) this.exitDownloadsMode();
+            this.resumeAfterReconnect();
         });
         window.addEventListener('offline', () => this.updateOfflineStatus());
         window.addEventListener('popstate', () => this.handleBackButton());
@@ -307,7 +321,8 @@ class MusicPlayer {
             await this.db.init();
             this.totalPlays = await this.db.getMeta('totalPlays', 0);
             this.topScored = await this.db.getMeta('topScored', []);
-            this.mixCategories = await this.db.getMeta('mixCategories', []);
+            // Se descartan categorías que ya no existan (un valor viejo rompía el selector).
+            this.mixCategories = (await this.db.getMeta('mixCategories', [])).filter(k => CATS[k]);
 
             // Por defecto siempre inicia en "Cristiana"; el selector de categorías
             // permanece oculto hasta que se desbloquee con el combo secreto.
@@ -382,13 +397,10 @@ class MusicPlayer {
         this.playlist = CATALOG.filter(s => cats.includes(s.category));
     }
 
-    // Reconstruye this.playlist según el pool activo (catálogo completo o solo
-    // descargadas si downloadsMode está activo) y la selección de Mix vigente.
-    // Reconstruye this.playlist según el pool activo (catálogo completo o solo
-    // descargadas si downloadsMode está activo) y la selección de Mix vigente.
+    // Reconstruye la cola según el pool activo (catálogo completo o solo descargadas
+    // si downloadsMode está activo) y la selección de Mix vigente.
     rebuildPlaylistFromState() {
-        this.playlist = this.getActivePool();
-        this.currentIndex = 0;
+        this.setQueue(this.getActivePool());
     }
 
     // Devuelve las canciones disponibles según el Mix elegido (nunca "todo" por defecto).
@@ -429,10 +441,15 @@ class MusicPlayer {
         document.body.classList.remove('theme-downloads');
         buildFallingCircles(document.getElementById('fallingCircles'), this.getHomeCirclePalette(), 16);
         this.dom.headerLabel.classList.remove('show');
-        this.rebuildPlaylistFromState();
-        if (this.playlist.length > 0) {
-            this.currentIndex = 0;
-            await this.loadSong(this.currentIndex, { autoplay: false });
+        // Antes se recargaba la canción 0 con autoplay:false aunque algo estuviera sonando:
+        // cortaba la música y dejaba isPlaying=true con el audio detenido. Ahora, si la
+        // canción actual sigue en la cola nueva, se deja sonar sin tocarla.
+        const wasPlaying = this.isPlaying;
+        const currentKey = this.active._songKey;
+        this.setQueue(this.getActivePool(), currentKey);
+        const stillThere = !!currentKey && this.playlist[this.currentIndex] && this.playlist[this.currentIndex].key === currentKey;
+        if (this.playlist.length > 0 && !stillThere) {
+            await this.loadSong(this.currentIndex, { autoplay: wasPlaying });
         }
         this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
         this.showToast('check', 'Conexión recuperada');
@@ -537,7 +554,7 @@ class MusicPlayer {
         const songs = keys.map(k => findByKey(k)).filter(Boolean);
         await this.renderSongCards(this.dom.settingsDownloadsList, songs, {
             emptyMsg: 'Aún no tienes canciones descargadas',
-            sourceIsTop: true
+            scope: 'downloads'
         });
     }
 
@@ -568,12 +585,24 @@ class MusicPlayer {
         }
     }
 
+    // Reporta al backend sin inundarlo: el mismo error de la misma canción se envía
+    // una vez cada ERROR_REPORT_COOLDOWN_MS, hay un tope por sesión y sin red no se
+    // intenta. (Antes un solo atasco generaba hasta 7 reportes idénticos seguidos.)
     async reportPlaybackError(song, errorText) {
         try {
+            if (!navigator.onLine) return;
+            const target = song ? song.url : 'canción desconocida';
+            const dedupeKey = `${String(errorText).split(/ [\(\[]/)[0]}|${target}`;
+            const now = Date.now();
+            const last = this._reportedErrors.get(dedupeKey);
+            if (last && now - last < ERROR_REPORT_COOLDOWN_MS) return;
+            if (this._reportCount >= MAX_ERROR_REPORTS_PER_SESSION) return;
+            this._reportedErrors.set(dedupeKey, now);
+            this._reportCount++;
             await fetch(BACKEND_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ sheet: 'errores', action: 'add', url: `${errorText} — ${song ? song.url : 'canción desconocida'}` })
+                body: JSON.stringify({ sheet: 'errores', action: 'add', url: `${errorText} — ${target}` })
             });
         } catch (e) { /* no interrumpir la reproducción por un fallo al reportar */ }
     }
@@ -596,6 +625,7 @@ class MusicPlayer {
 
     startPlayback() {
         if (this.playlist.length === 0) return;
+        this._consecutiveLoadFailures = 0;
         this.loadSong(this.currentIndex, { autoplay: true });
     }
 
@@ -640,14 +670,82 @@ class MusicPlayer {
                 : (this.activeListTab === 'top'
                     ? 'Aún no tienes canciones en tu TOP'
                     : (this.downloadsMode ? 'Aún no tienes canciones descargadas' : 'No hay canciones disponibles')),
-            sourceIsTop: this.activeListTab === 'top'
+            scope: this.activeListTab === 'top' ? 'top' : 'pool'
         });
     }
 
+    // ---------- COLA DE REPRODUCCIÓN ----------
+    // ÚNICO punto por donde se reemplaza this.playlist. Antes cada sitio (tarjetas,
+    // selector de Mix, modo Descargas...) hacía su propio "this.playlist = ..." y
+    // dejaba vivos el crossfade, la canción precargada y el historial del shuffle de
+    // la lista ANTERIOR: de ahí que, con una sola sección elegida, terminaran
+    // colándose canciones de otras secciones.
+    // Devuelve el índice de arranque dentro de la nueva cola.
+    setQueue(songs, startKey = null, { shuffleStart = false } = {}) {
+        this.cancelCrossfade();
+        this.playlist = (songs || []).slice();
+        this.shuffleHistory = [];
+        this.recentKeys = [];
+        this._nextIdx = null;
+        let idx = startKey ? this.playlist.findIndex(s => s.key === startKey) : -1;
+        if (idx === -1) {
+            idx = (shuffleStart && this.isShuffle && this.playlist.length > 0)
+                ? Math.floor(Math.random() * this.playlist.length)
+                : 0;
+        }
+        this.currentIndex = idx;
+        return idx;
+    }
+
+    // La "siguiente canción" se decide UNA vez y se recuerda (_nextIdx): así lo que
+    // se precarga para el crossfade es exactamente lo que sonará después.
+    getNextIndex() {
+        const n = this.playlist.length;
+        if (n === 0) return 0;
+        if (this._nextIdx == null || this._nextIdx >= n) this._nextIdx = this.pickNextIndex();
+        return this._nextIdx;
+    }
+    pickNextIndex() {
+        const n = this.playlist.length;
+        if (n <= 1) return 0;
+        const now = Date.now();
+        const isBad = (s) => (this._badUntil.get(s.key) || 0) > now; // falló hace poco: se evita
+        if (!this.isShuffle) {
+            for (let step = 1; step < n; step++) {
+                const i = (this.currentIndex + step) % n;
+                if (!isBad(this.playlist[i])) return i;
+            }
+            return (this.currentIndex + 1) % n;
+        }
+        // Aleatorio sin repetir las últimas canciones escuchadas (antes era random puro
+        // y a veces volvía a sonar una que acababa de pasar).
+        const recent = new Set(this.recentKeys.slice(-Math.min(30, Math.floor(n / 2))));
+        const pick = (accept) => {
+            const out = [];
+            for (let i = 0; i < n; i++) if (i !== this.currentIndex && accept(this.playlist[i])) out.push(i);
+            return out;
+        };
+        let candidates = pick(s => !recent.has(s.key) && !isBad(s));
+        if (!candidates.length) candidates = pick(s => !isBad(s));
+        if (!candidates.length) candidates = pick(() => true);
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+    // Una canción pasa a ser "la actual".
+    commitCurrent(song) {
+        this._nextIdx = null;
+        this.recentKeys.push(song.key);
+        if (this.recentKeys.length > 100) this.recentKeys.shift();
+    }
+    markBad(key) {
+        if (!key) return;
+        this._badUntil.set(key, Date.now() + 5 * 60 * 1000);
+        this._nextIdx = null;
+    }
+
     // ---------- CARGA Y REPRODUCCIÓN ----------
-    // SIN "async/await" a propósito: si esto esperara una lectura de IndexedDB,
-    // el tiempo transcurrido entre el click del usuario y el audio.play() rompería
-    // el "gesto del usuario" y el navegador bloquearía la reproducción.
+    // SIN "await" antes de audio.play() a propósito: si esto esperara una lectura de
+    // IndexedDB, el tiempo entre el click del usuario y el play() rompería el "gesto
+    // del usuario" y el navegador bloquearía la reproducción.
     resolveSource(song) {
         const blob = this.cachedBlobMap.get(song.key);
         if (blob) return { url: URL.createObjectURL(blob), offline: true };
@@ -662,59 +760,84 @@ class MusicPlayer {
         }
     }
 
-    async loadSong(index, opts = {}) {
-        const song = this.playlist[index];
-        if (!song) return;
-        const autoplay = opts.autoplay !== undefined ? opts.autoplay : this.isPlaying;
+    // Asigna una canción a un <audio> y reinicia todo su estado por-canción.
+    _setSource(audio, song) {
+        this._revokeSrc(audio);
         const src = this.resolveSource(song);
-        const audio = opts.targetAudio || this.active;
-        // Token de carrera: si el usuario salta de canción rápido (varios toques
-        // seguidos a "siguiente"), cada loadSong() invalida al anterior. Así, si el
-        // play() de una carga vieja rechaza (típicamente con AbortError porque la
-        // reemplazamos), lo ignoramos en vez de tratarlo como un error real.
-        const loadId = (this._loadSeq = (this._loadSeq || 0) + 1);
-        clearTimeout(this._stallTimer);
-        audio.src = src.url;
-        audio.volume = 1;
-        audio.load();
+        audio._objUrl = src.offline ? src.url : null;
+        audio.src = src.url; // asignar src ya dispara la carga; un audio.load() extra la reiniciaba por duplicado
         audio._songKey = song.key;
         audio._offline = src.offline;
         audio._skipCounted = false;
         audio._completeCounted = false;
         audio._playCounted = false;
+        audio._preloadTried = false;
+        audio._stallRetries = 0;
+        audio._errorRetries = 0;
+        audio._lastT = 0;
+        return src;
+    }
+    // Las URLs blob: de canciones descargadas nunca se liberaban (fuga de memoria).
+    _revokeSrc(audio) {
+        if (audio._objUrl) { try { URL.revokeObjectURL(audio._objUrl); } catch (e) { } audio._objUrl = null; }
+    }
+    // Deja un <audio> vacío y sin descargar nada.
+    _detach(audio) {
+        if (!audio.getAttribute('src') && !audio._songKey) return;
+        try { audio.pause(); } catch (e) { }
+        this._revokeSrc(audio);
+        audio.removeAttribute('src');
+        audio._songKey = null;
+        try { audio.load(); } catch (e) { }
+    }
 
-        if (!opts.isCrossfadeTarget) {
-            this.currentIndex = index;
-            this.updateSongUI(song, src.offline);
-            if (autoplay) {
-                this.isPlaying = true;
-                audio.play().catch((err) => {
-                    // Una carga más nueva ya reemplazó a esta: el rechazo es obsoleto, se ignora.
-                    if (this._loadSeq !== loadId) return;
-                    // AbortError casi siempre significa que nosotros mismos interrumpimos
-                    // el play() (por un salto rápido), no que la canción esté rota.
-                    if (err && err.name === 'AbortError') return;
-                    this.showToast('x', src.offline ? 'Error al reproducir' : 'No se pudo transmitir (sin conexión)');
-                    const reason = err && err.name ? `No se pudo iniciar la reproducción (${err.name})` : 'No se pudo iniciar la reproducción';
-                    this.reportPlaybackError(song, reason);
-                    this.isPlaying = false;
-                    this.setPlayButtonState(false);
-                    // No dejamos la app congelada: probamos con la siguiente canción,
-                    // con un límite para no entrar en bucle si TODAS fallan.
-                    this._consecutiveLoadFailures = (this._consecutiveLoadFailures || 0) + 1;
-                    if (this._consecutiveLoadFailures <= Math.max(5, this.playlist.length)) {
-                        setTimeout(() => this.nextSong(false), 400);
-                    } else {
-                        this.showToast('x', 'Varias canciones seguidas fallaron al reproducir');
-                    }
-                });
-                this.setPlayButtonState(true);
-            } else {
-                this.setPlayButtonState(false);
-            }
-            this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
+    async loadSong(index, opts = {}) {
+        const song = this.playlist[index];
+        if (!song) return;
+        const autoplay = opts.autoplay !== undefined ? opts.autoplay : this.isPlaying;
+        const audio = this.active;
+        // Token de carrera: si el usuario salta rápido de canción, cada loadSong()
+        // invalida al anterior y los rechazos obsoletos de play() se ignoran.
+        const loadId = (this._loadSeq = (this._loadSeq || 0) + 1);
+        this.cancelCrossfade();
+        this.clearStall();
+        this._resumeOnReconnect = false;
+        this._ignorePauseUntil = Date.now() + 250; // margen mínimo por si algún navegador emite "pause" al cambiar src (Chrome no lo hace)
+        const src = this._setSource(audio, song);
+        audio.volume = 1;
+        audio.loop = this.isRepeat;
+
+        this.currentIndex = index;
+        this.commitCurrent(song);
+        this.updateSongUI(song, src.offline);
+        // Antes isPlaying podía quedar en true con el audio detenido (autoplay:false).
+        this.isPlaying = !!autoplay;
+        if (autoplay) {
+            audio.play().catch((err) => this.onPlayRejected(err, audio, song, loadId));
+            this.setPlayButtonState(true);
+        } else {
+            this.setPlayButtonState(false);
         }
         return audio;
+    }
+
+    onPlayRejected(err, audio, song, loadId) {
+        if (this._loadSeq !== loadId || audio !== this.active) return; // una carga más nueva ya la reemplazó
+        if (!err) return;
+        // AbortError: la interrumpimos nosotros (salto rápido). NotSupportedError: el
+        // evento 'error' del <audio> ya lo gestiona; atenderlo aquí también hacía saltar
+        // DOS canciones por cada fallo y duplicaba el reporte.
+        if (err.name === 'AbortError' || err.name === 'NotSupportedError') return;
+        this.isPlaying = false;
+        this.setPlayButtonState(false);
+        if (err.name === 'NotAllowedError') {
+            // El navegador exige un toque del usuario. Antes aquí se saltaba a la siguiente,
+            // que también era bloqueada, y se recorría la lista entera sin sonar nada.
+            this.showToast('x', 'Toca play para reproducir');
+            return;
+        }
+        this.showToast('x', 'No se pudo reproducir');
+        this.reportPlaybackError(song, `No se pudo iniciar la reproducción (${err.name || 'error'})`);
     }
 
     updateSongUI(song, offline) {
@@ -723,13 +846,22 @@ class MusicPlayer {
         this.portadaActual = getRandomPortada();
         this.dom.albumImage.src = this.portadaActual;
         this.getStatsFor(song.key).then(st => this.updateFavoriteUI(st.liked));
-        this.db.getCachedBlob(song.key).then(blob => this.updateDownloadUI(!!blob));
+        this.updateDownloadUI(this.cachedBlobMap.has(song.key)); // antes leía el blob completo desde IndexedDB solo para saber si existía
         this.updateMediaSessionMeta(song);
-        // Reiniciamos la barra de progreso: si no la reseteamos aquí, se queda mostrando
-        // el avance de la canción anterior hasta que llegue el primer "timeupdate" de la nueva.
+        // Reiniciamos la barra: si no, se queda mostrando el avance de la canción anterior.
         this.dom.progressFill.style.width = '0%';
         this.dom.currentTime.textContent = '0:00';
         this.dom.totalTime.textContent = '0:00';
+    }
+
+    // Marca en la lista la canción actual SIN reconstruirla. Antes cada cambio de
+    // canción volvía a pintar toda la lista (cientos de lecturas a IndexedDB).
+    refreshActiveCard() {
+        const cur = this.playlist[this.currentIndex];
+        const key = cur ? cur.key : null;
+        document.querySelectorAll('.song-card[data-key]').forEach(el => {
+            el.classList.toggle('pressed', !!key && el.dataset.key === key && this.isPlaying);
+        });
     }
 
     setPlayButtonState(playing) {
@@ -737,30 +869,56 @@ class MusicPlayer {
         this.dom.playBtn.classList.toggle('is-playing', playing);
         this.updateWaves(playing);
         this.dom.albumArt.classList.toggle('spinning', playing);
+        this.refreshActiveCard();
+        if ('mediaSession' in navigator) {
+            try { navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'; } catch (e) { }
+        }
     }
 
     togglePlay() {
         if (!this.playlist.length) { this.showToast('x', 'No hay canciones'); return; }
-        if (!this.active.src) { this.loadSong(this.currentIndex, { autoplay: true }); return; }
+        this._consecutiveLoadFailures = 0;
+        // Sin fuente o en estado de error (p. ej. falló al abrir la app): recargar de cero.
+        if (!this.active.src || this.active.error) { this.loadSong(this.currentIndex, { autoplay: true }); return; }
         if (this.isPlaying) {
-            clearTimeout(this._stallTimer);
-            this.active.pause();
-            if (this.crossfading) this.inactive.pause();
+            this.clearStall();
+            this._resumeOnReconnect = false;
             this.isPlaying = false;
+            // Si se pausaba en pleno crossfade, la canción entrante quedaba pausada y al
+            // terminar la actual se cambiaba a un audio detenido: silencio para siempre.
+            this.cancelCrossfade();
+            this.active.pause();
             this.setPlayButtonState(false);
             this.savePlaybackPosition();
         } else {
+            this.isPlaying = true;
+            this.setPlayButtonState(true);
             this.active.play().catch((err) => {
-                if (err && err.name === 'AbortError') return; // interrupción propia (toques rápidos), no un error real
+                if (err && err.name === 'AbortError') return; // interrupción propia (toques rápidos)
+                this.isPlaying = false;
+                this.setPlayButtonState(false);
+                if (err && err.name === 'NotSupportedError') return; // lo atiende el evento 'error'
                 this.showToast('x', 'No se puede reproducir');
                 const reason = err && err.name ? `No se pudo reanudar la reproducción (${err.name})` : 'No se pudo reanudar la reproducción';
                 this.reportPlaybackError(findByKey(this.active._songKey), reason);
-                this.isPlaying = false;
-                this.setPlayButtonState(false);
             });
-            this.isPlaying = true;
-            this.setPlayButtonState(true);
         }
+    }
+
+    // El sistema (llamada, auriculares, notificación del móvil) puede pausar/reanudar el
+    // <audio> por su cuenta; sin esto la interfaz seguía mostrando el estado equivocado.
+    onAudioPause(audio) {
+        if (audio !== this.active || audio.ended || !this.isPlaying) return;
+        if (Date.now() < (this._ignorePauseUntil || 0)) return;
+        this.clearStall();
+        this.isPlaying = false;
+        this.setPlayButtonState(false);
+        this.savePlaybackPosition();
+    }
+    onAudioPlay(audio) {
+        if (audio !== this.active || this.isPlaying) return;
+        this.isPlaying = true;
+        this.setPlayButtonState(true);
     }
 
     recordSwitchStats(audio, { skippedManually = false } = {}) {
@@ -794,126 +952,214 @@ class MusicPlayer {
 
     prevSong() {
         if (!this.playlist.length) return;
-        this.recordSwitchStats(this.active, { skippedManually: true });
-        if (this.isShuffle && this.shuffleHistory.length > 0) {
-            this.currentIndex = this.shuffleHistory.pop() || 0;
-        } else {
-            this.currentIndex = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
+        this._consecutiveLoadFailures = 0;
+        // Como en cualquier reproductor: pasados unos segundos, "anterior" reinicia la canción.
+        if (this.active._songKey && !this.active.error && this.active.currentTime > 3) {
+            this.cancelCrossfade();
+            this.active.currentTime = 0;
+            return;
         }
-        this.stopCrossfadeState();
-        this.loadSong(this.currentIndex, { autoplay: this.isPlaying });
+        this.recordSwitchStats(this.active, { skippedManually: true });
+        let idx = -1;
+        if (this.isShuffle) {
+            // El historial guarda CLAVES, no índices: los índices dejaban de valer en
+            // cuanto la lista cambiaba (Mix distinto, otra pestaña...) y "anterior"
+            // saltaba a una canción cualquiera, de otra sección incluso.
+            while (this.shuffleHistory.length && idx === -1) {
+                const key = this.shuffleHistory.pop();
+                idx = this.playlist.findIndex(s => s.key === key);
+            }
+        }
+        if (idx === -1) idx = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
+        this.loadSong(idx, { autoplay: this.isPlaying });
     }
 
     nextSong(manual = true) {
         if (!this.playlist.length) return;
-        if (manual) this.recordSwitchStats(this.active, { skippedManually: true });
-        let next;
-        if (this.isShuffle) {
-            do { next = Math.floor(Math.random() * this.playlist.length); } while (next === this.currentIndex && this.playlist.length > 1);
-            this.shuffleHistory.push(this.currentIndex);
-        } else {
-            next = (this.currentIndex + 1) % this.playlist.length;
+        if (manual) {
+            this._consecutiveLoadFailures = 0;
+            this.recordSwitchStats(this.active, { skippedManually: true });
         }
-        this.currentIndex = next;
-        this.stopCrossfadeState();
-        this.loadSong(this.currentIndex, { autoplay: this.isPlaying });
-    }
-
-    stopCrossfadeState() {
-        this.crossfading = false;
-        this.inactive.pause();
-        this.inactive.volume = 1;
+        const cur = this.playlist[this.currentIndex];
+        const next = this.getNextIndex();
+        if (this.isShuffle && cur) {
+            this.shuffleHistory.push(cur.key);
+            if (this.shuffleHistory.length > 100) this.shuffleHistory.shift();
+        }
+        this.loadSong(next, { autoplay: this.isPlaying });
     }
 
     onEnded(audio) {
         if (audio !== this.active) return;
-        if (this.crossfading) return;
+        // Si la canción terminó en pleno crossfade (en segundo plano "timeupdate" llega
+        // espaciado y puede no alcanzar el umbral final), antes se ignoraba aquí y la
+        // app quedaba congelada con el audio siguiente sonando "fuera" de control.
+        if (this.crossfading) { this.finishCrossfade(); return; }
         if (this.isRepeat) {
-            const song = findByKey(audio._songKey);
-            if (!(song && CATS[song.category].noStats)) {
-                this.getStatsFor(audio._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
-            }
+            // Red de seguridad: con audio.loop=true 'ended' no debería llegar nunca.
             audio.currentTime = 0;
-            audio.play().catch((err) => {
-                if (err && err.name === 'AbortError') return; // interrupción propia, no un error real
-                const reason = err && err.name ? `No se pudo repetir la canción (${err.name})` : 'No se pudo repetir la canción';
-                this.reportPlaybackError(song, reason);
-                // Antes esto quedaba en silencio y la reproducción se congelaba.
-                // Ahora avanzamos para no dejar la app trabada.
-                this.nextSong(false);
-            });
-            this.showToast('repeat', 'Repitiendo canción');
+            audio.play().catch(() => { });
             return;
         }
         this.recordSwitchStats(audio, { skippedManually: false });
         this.nextSong(false);
     }
 
+    // ---------- ERRORES ----------
     onAudioError(audio) {
+        if (!audio._songKey) return; // elemento ya liberado
         const song = findByKey(audio._songKey);
         const errCode = audio.error ? audio.error.code : null;
         const errMap = { 1: 'Reproducción abortada', 2: 'Error de red', 3: 'Error al decodificar el audio', 4: 'Formato/fuente no soportada' };
         const errorText = errMap[errCode] || 'Error desconocido de reproducción';
 
-        // Punto 2: si lo que falló es la pista que se estaba precargando para el
-        // crossfade (this.inactive mientras this.crossfading), antes esto se
-        // ignoraba por completo y el crossfade igual terminaba cambiando a un
-        // audio roto/sin fuente, congelando la reproducción. Ahora cancelamos
-        // el crossfade y dejamos que la canción activa siga sonando normal
-        // hasta que termine (onEnded se encargará de avanzar).
-        if (this.crossfading && audio === this.inactive) {
-            this.crossfading = false;
+        // Falló la canción que se estaba precargando para el crossfade: se cancela el
+        // fundido y la canción actual sigue normal; la próxima será otra distinta.
+        if (this._preload && audio === this._preload.audio) {
+            const failedKey = this._preload.key;
+            this._fadeToken++;
+            if (this.crossfading) { this.crossfading = false; this.active.volume = 1; }
+            this._preload = null;
+            this.markBad(failedKey);
             this.reportPlaybackError(song, `Falló precarga de crossfade: ${errorText}`);
-            this.active.volume = 1;
-            audio.pause();
-            audio.volume = 1;
+            this._detach(audio);
             return;
         }
 
         if (audio !== this.active) return;
-        this.reportPlaybackError(song, errorText);
-        this.showToast('x', audio._offline ? 'Error al reproducir' : 'No se pudo transmitir esta canción');
-        if (!navigator.onLine) {
-            this.tryPlayNextCached();
+        this.clearStall();
+        this.reportPlaybackError(song, `${errorText} [${this.netInfo()}]`);
+
+        // Carga "en reposo" (p. ej. al abrir la app): no hay nada que saltar. Si el
+        // usuario pulsa play, togglePlay detecta el error y reintenta desde cero.
+        if (!this.isPlaying) return;
+
+        if (audio._offline) {
+            // La copia descargada está dañada: se descarta y se vuelve a transmitir.
+            this.db.deleteCachedBlob(audio._songKey);
+            this.cachedBlobMap.delete(audio._songKey);
+            this.showToast('x', 'Copia descargada dañada: se transmitirá en línea');
+            if (navigator.onLine) { this.loadSong(this.currentIndex, { autoplay: true }); return; }
+        }
+        if (!navigator.onLine) { this.tryPlayNextCached(); return; }
+
+        const loadId = this._loadSeq;
+        // En Chrome, perder la conexión a mitad de la carga se reporta como "Formato no
+        // soportado". Se reintenta UNA vez la misma canción antes de darla por mala.
+        if (!audio._errorRetries) {
+            audio._errorRetries = 1;
+            this.showToast('wifiOff', 'Conexión inestable, reintentando…');
+            const pos = audio.currentTime || 0;
+            setTimeout(() => {
+                if (this._loadSeq === loadId && this.isPlaying) this.reloadActiveAt(audio, pos);
+            }, 1500);
+            return;
+        }
+        this.markBad(audio._songKey);
+        this.skipAfterFailure(loadId);
+    }
+
+    // Pasa a la siguiente tras un fallo, con tope. Antes el tope era el tamaño de la
+    // lista (hasta ~350 fallos seguidos): sin conexión se recorría toda la lista,
+    // saturando la red y el reporte de errores, y la música no volvía a arrancar.
+    skipAfterFailure(loadId) {
+        this._consecutiveLoadFailures = (this._consecutiveLoadFailures || 0) + 1;
+        if (this._consecutiveLoadFailures <= MAX_CONSECUTIVE_FAILURES) {
+            setTimeout(() => {
+                if (this._loadSeq === loadId && this.isPlaying) this.nextSong(false);
+            }, 400);
         } else {
-            this._consecutiveLoadFailures = (this._consecutiveLoadFailures || 0) + 1;
-            if (this._consecutiveLoadFailures <= Math.max(5, this.playlist.length)) {
-                setTimeout(() => this.nextSong(false), 400);
-            } else {
-                this.showToast('x', 'Varias canciones seguidas fallaron al reproducir');
-            }
+            this.isPlaying = false;
+            this.setPlayButtonState(false);
+            this._resumeOnReconnect = false;
+            this.showToast('wifiOff', 'Varias canciones fallaron: revisa tu conexión y toca play');
         }
     }
 
-    // Punto 7: en datos móviles la canción a veces se queda "esperando" (buffering)
-    // y nunca retoma sola. Si el audio activo lleva demasiado tiempo en ese estado,
-    // reintentamos recargar la fuente desde el mismo punto en vez de dejarla pausada
-    // indefinidamente.
+    netInfo() {
+        const c = navigator.connection;
+        return `online=${navigator.onLine}${c && c.effectiveType ? `, red=${c.effectiveType}` : ''}`;
+    }
+
+    // Recarga la fuente del audio activo y retoma en el segundo indicado.
+    reloadActiveAt(audio, pos) {
+        if (audio !== this.active || !audio._songKey) return;
+        const key = audio._songKey;
+        this._ignorePauseUntil = Date.now() + 250;
+        const restore = () => {
+            if (audio._songKey === key && pos > 0) { try { audio.currentTime = pos; } catch (e) { } }
+        };
+        audio.addEventListener('loadedmetadata', restore, { once: true });
+        audio.load();
+        if (this.isPlaying) audio.play().catch(() => { });
+    }
+
+    // ---------- ATASCOS DE BUFFERING ----------
+    // En datos móviles la canción a veces se queda "esperando" datos. Antes, a los 3s
+    // se recargaba la fuente: eso DESCARTABA lo ya descargado y volvía a empezar, así
+    // que con una red lenta se entraba en un bucle de recargas sin avanzar nunca.
+    // Ahora: 1) esperar más, 2) empujar el play, 3) recargar (máx. 2 veces) y
+    // 4) si sigue sin avanzar, pasar a la siguiente.
     onAudioWaiting(audio) {
-        if (audio !== this.active) return;
-        clearTimeout(this._stallTimer);
-        this._stallTimer = setTimeout(() => {
-            if (this.active !== audio || audio.paused || !this.isPlaying) return;
-            const song = findByKey(audio._songKey);
-            this.reportPlaybackError(song, 'Buffering atascado: recargando fuente');
-            const resumeAt = audio.currentTime;
-            audio.load();
-            audio.currentTime = resumeAt;
-            audio.play().catch(() => { });
-        }, STALL_TIMEOUT_MS);
+        if (audio !== this.active || !this.isPlaying || this._stallTimer) return;
+        this._stallTimer = setTimeout(() => this.handleStall(audio), STALL_TIMEOUT_MS);
     }
     onAudioPlaying(audio) {
         if (audio !== this.active) return;
-        clearTimeout(this._stallTimer);
+        this.clearStall();
         this._consecutiveLoadFailures = 0;
+        this._resumeOnReconnect = false;
+        audio._stallRetries = 0;
+    }
+    clearStall() {
+        clearTimeout(this._stallTimer);
+        this._stallTimer = null;
+    }
+    handleStall(audio) {
+        this._stallTimer = null;
+        if (audio !== this.active || !this.isPlaying || audio.paused || audio.ended) return;
+        if (audio.readyState >= 3) return; // ya se recuperó
+        if (!audio._offline && !navigator.onLine) {
+            // Sin red no tiene sentido recargar: se espera a que vuelva (evento 'online').
+            this._resumeOnReconnect = true;
+            this.showToast('wifiOff', 'Sin conexión: se reanudará al volver');
+            return;
+        }
+        const song = findByKey(audio._songKey);
+        const loadId = this._loadSeq;
+        audio._stallRetries = (audio._stallRetries || 0) + 1;
+        const n = audio._stallRetries;
+        if (n === 1) {
+            audio.play().catch(() => { }); // empujón suave: conserva lo ya descargado
+        } else if (n <= 1 + STALL_MAX_RELOADS) {
+            this.reportPlaybackError(song, `Buffering atascado: recargando fuente (intento ${n - 1}) [${this.netInfo()}]`);
+            this.reloadActiveAt(audio, audio.currentTime);
+        } else {
+            this.reportPlaybackError(song, `Buffering atascado: se omite la canción [${this.netInfo()}]`);
+            this.markBad(audio._songKey);
+            this.showToast('wifiOff', 'Conexión lenta: pasando a la siguiente');
+            this.skipAfterFailure(loadId);
+            return;
+        }
+        this._stallTimer = setTimeout(() => this.handleStall(audio), STALL_TIMEOUT_MS);
+    }
+    // Al volver la red, retomar justo donde se quedó.
+    resumeAfterReconnect() {
+        if (!this._resumeOnReconnect) return;
+        this._resumeOnReconnect = false;
+        if (!this.isPlaying || !this.active._songKey) return;
+        this.reloadActiveAt(this.active, this.active.currentTime);
     }
 
     async tryPlayNextCached() {
-        for (let i = 1; i <= this.playlist.length; i++) {
-            const idx = (this.currentIndex + i) % this.playlist.length;
-            const song = this.playlist[idx];
-            const blob = await this.db.getCachedBlob(song.key);
-            if (blob) { this.currentIndex = idx; this.loadSong(idx, { autoplay: this.isPlaying }); return; }
+        this._consecutiveLoadFailures = (this._consecutiveLoadFailures || 0) + 1;
+        const n = this.playlist.length;
+        if (this._consecutiveLoadFailures <= n) {
+            for (let i = 1; i < n; i++) {
+                const idx = (this.currentIndex + i) % n;
+                const song = this.playlist[idx];
+                if (this.cachedBlobMap.has(song.key)) { this.loadSong(idx, { autoplay: this.isPlaying }); return; }
+            }
         }
         this.showToast('wifiOff', 'Sin conexión: no hay más canciones guardadas');
         this.isPlaying = false; this.setPlayButtonState(false);
@@ -921,83 +1167,129 @@ class MusicPlayer {
 
     onTimeUpdate(audio) {
         if (audio !== this.active) return;
-        if (!this.isDragging && audio.duration && isFinite(audio.duration)) {
-            const p = Math.max(0, Math.min(100, (audio.currentTime / audio.duration) * 100));
+        const dur = audio.duration;
+        if (!dur || !isFinite(dur)) return;
+        if (this._stallTimer && audio.readyState >= 3) this.clearStall(); // volvió a avanzar
+
+        if (!this.isDragging) {
+            const p = Math.max(0, Math.min(100, (audio.currentTime / dur) * 100));
             this.dom.progressFill.style.width = `${p}%`;
             this.dom.currentTime.textContent = this.formatTime(audio.currentTime);
-            this.dom.totalTime.textContent = this.formatTime(audio.duration);
+            this.dom.totalTime.textContent = this.formatTime(dur);
+        }
 
-            // Guardamos la posición cada ~5s (no en cada "timeupdate") para no saturar
-            // el almacenamiento; así, si cierran la app, retoman cerca de donde iban.
-            if (!this._lastPosSaveAt || Date.now() - this._lastPosSaveAt > 5000) {
-                this._lastPosSaveAt = Date.now();
-                this.savePlaybackPosition();
+        // Repetición nativa (audio.loop): detectamos la vuelta al inicio para contarla.
+        if (audio.loop && (audio._lastT || 0) > dur - 1.5 && audio.currentTime < 1.5) {
+            const song = findByKey(audio._songKey);
+            if (!(song && CATS[song.category].noStats)) {
+                this.getStatsFor(audio._songKey).then(st => { st.repeats = (st.repeats || 0) + 1; this.saveStats(st); });
             }
+        }
+        audio._lastT = audio.currentTime;
 
-            if (!audio._playCounted && audio.currentTime > 0.3) {
-                audio._playCounted = true;
-                const song = findByKey(audio._songKey);
-                if (song) this.registerPlayStart(song);
-            }
+        // Guardamos la posición cada ~5s para retomar cerca de donde iban si cierran la app.
+        if (!this._lastPosSaveAt || Date.now() - this._lastPosSaveAt > 5000) {
+            this._lastPosSaveAt = Date.now();
+            this.savePlaybackPosition();
+        }
 
-            const remaining = audio.duration - audio.currentTime;
-            if (!this.crossfading && !this.isRepeat && remaining <= FADE_SECONDS && audio.duration > FADE_SECONDS * 2.2 && this.playlist.length > 1) {
-                this.beginCrossfade();
+        if (!audio._playCounted && audio.currentTime > 0.3) {
+            audio._playCounted = true;
+            const song = findByKey(audio._songKey);
+            if (song) this.registerPlayStart(song);
+        }
+
+        if (dur > FADE_SECONDS * 2.2) {
+            const remaining = dur - audio.currentTime;
+            if (this.crossfading) {
+                this.stepCrossfade(remaining);
+            } else {
+                this.maybePreloadNext(audio, remaining);
+                this.maybeStartCrossfade(audio, remaining);
             }
-            if (this.crossfading) this.stepCrossfade(remaining);
         }
     }
 
-    async beginCrossfade() {
-        this.crossfading = true;
-        let nextIdx;
-        if (this.isShuffle) {
-            do { nextIdx = Math.floor(Math.random() * this.playlist.length); } while (nextIdx === this.currentIndex && this.playlist.length > 1);
-        } else {
-            nextIdx = (this.currentIndex + 1) % this.playlist.length;
-        }
-        this._crossfadeNextIndex = nextIdx;
-        const nextSong = this.playlist[nextIdx];
+    // ---------- PRECARGA Y CROSSFADE ----------
+    // Flujo: faltando PRELOAD_SECONDS se empieza a DESCARGAR la siguiente (en pausa y
+    // sin sonar). Faltando FADE_SECONDS se da play y, solo cuando realmente está
+    // sonando, comienza el fundido. Si algo falla (fuente rota, play bloqueado) no hay
+    // fundido y la canción actual termina normal, avanzando con 'ended'. Antes se
+    // cambiaba de elemento a ciegas aunque el siguiente no estuviera sonando.
+    canCrossfade() {
+        return VOLUME_CONTROL && !this.isRepeat && this.isPlaying && this.playlist.length > 1;
+    }
+    maybePreloadNext(audio, remaining) {
+        if (audio._preloadTried || this._preload || !this.canCrossfade()) return;
+        if (!(remaining <= PRELOAD_SECONDS)) return;
+        audio._preloadTried = true;
+        const idx = this.getNextIndex();
+        const next = this.playlist[idx];
+        if (!next || idx === this.currentIndex) return;
         const target = this.inactive;
-        const src = this.resolveSource(nextSong);
-        target.src = src.url;
-        target._songKey = nextSong.key;
-        target._offline = src.offline;
-        target._skipCounted = false; target._completeCounted = false; target._playCounted = false;
+        this._setSource(target, next);
         target.volume = 0;
-        target.load();
-        target.play().catch(() => { });
+        target.loop = false;
+        this._preload = { idx, key: next.key, audio: target, failed: false, starting: false };
     }
-
+    maybeStartCrossfade(audio, remaining) {
+        const p = this._preload;
+        if (!p || p.failed || p.starting || remaining > FADE_SECONDS || !this.canCrossfade()) return;
+        p.starting = true;
+        const token = this._fadeToken;
+        p.audio.volume = 0;
+        p.audio.play().then(() => {
+            if (token !== this._fadeToken || this._preload !== p) return; // cancelado mientras arrancaba
+            this.crossfading = true;
+        }).catch((err) => {
+            if (token !== this._fadeToken || this._preload !== p) return;
+            p.failed = true;
+            p.starting = false;
+            try { p.audio.pause(); } catch (e) { }
+            if (!(err && (err.name === 'AbortError' || err.name === 'NotSupportedError'))) {
+                this.reportPlaybackError(findByKey(p.key), `Falló crossfade: ${err && err.name ? err.name : 'error'}`);
+            }
+        });
+    }
     stepCrossfade(remaining) {
+        // Si el usuario retrocedió la barra en pleno fundido, se cancela (si no, la
+        // canción entrante seguía avanzando en silencio y luego entraba a mitad).
+        if (remaining > FADE_SECONDS + 1) { this.cancelCrossfade(); return; }
         const t = Math.max(0, Math.min(1, 1 - (remaining / FADE_SECONDS)));
-        this.active.volume = Math.max(0, 1 - t);
-        this.inactive.volume = Math.min(1, t);
+        this.active.volume = Math.cos(t * Math.PI / 2);   // potencia constante: sin "hueco" de volumen a mitad
+        this.inactive.volume = Math.sin(t * Math.PI / 2);
         if (remaining <= 0.15) this.finishCrossfade();
     }
-
     finishCrossfade() {
-        if (!this.crossfading) return;
+        const p = this._preload;
+        if (!this.crossfading || !p) return;
         this.crossfading = false;
+        this._preload = null;
+        this._fadeToken++;
         const oldAudio = this.active;
-        const newAudio = this.inactive;
+        const newAudio = p.audio;
         this.recordSwitchStats(oldAudio, { skippedManually: false });
-        const oldSong = findByKey(oldAudio._songKey);
-        if (!(oldSong && CATS[oldSong.category].noStats)) {
-            this.getStatsFor(oldAudio._songKey).then(st => {
-                if (!st.completes) st.completes = 0;
-                if (!oldAudio._completeCounted) { st.completes += 1; oldAudio._completeCounted = true; this.saveStats(st); }
-            });
-        }
-        oldAudio.pause();
-        oldAudio.volume = 1;
+        oldAudio.loop = false;
+        this._detach(oldAudio);
         newAudio.volume = 1;
+        newAudio.loop = this.isRepeat;
+        if (newAudio.paused) newAudio.play().catch(() => { });
         this.active = newAudio;
         this.inactive = oldAudio;
-        this.currentIndex = this._crossfadeNextIndex;
+        this.currentIndex = p.idx;
         const song = this.playlist[this.currentIndex];
+        this.commitCurrent(song);
         this.updateSongUI(song, newAudio._offline);
-        this.switchListTab(this.activeListTab); // siempre poblada: en web la lista no tiene botón para abrirse
+        this.refreshActiveCard();
+    }
+    // Cancela fundido y precarga pendientes (cambio de canción, de cola, pausa, repetir...).
+    cancelCrossfade() {
+        this._fadeToken++;
+        this.crossfading = false;
+        this._preload = null;
+        if (this.inactive) this._detach(this.inactive);
+        this.active.volume = 1;
+        this.active._preloadTried = false; // si hace falta, se vuelve a precargar con la cola vigente
     }
 
     toggleFavorite() {
@@ -1042,11 +1334,19 @@ class MusicPlayer {
         this.showToast('shuffle', this.isShuffle ? 'Aleatorio activado' : 'Aleatorio desactivado');
         this.db.setMeta('isShuffle', this.isShuffle);
         if (this.isShuffle) this.shuffleHistory = [];
+        // El orden de "lo que sigue" cambió: se descarta la siguiente ya decidida/precargada.
+        this._nextIdx = null;
+        this.cancelCrossfade();
     }
     toggleRepeat() {
         this.isRepeat = !this.isRepeat;
         this.dom.repeatBtn.classList.toggle('toggle-pressed', this.isRepeat);
         this.showToast('repeat', this.isRepeat ? 'Repetir activado' : 'Repetir desactivado');
+        // Repetición NATIVA con audio.loop: el elemento nunca llega a 'ended', así que no hay
+        // hueco ni dependemos de poder volver a llamar play() desde un evento (en móvil, en
+        // segundo plano, ese play() podía ser bloqueado y la música no volvía a sonar).
+        this.active.loop = this.isRepeat;
+        if (this.isRepeat) this.cancelCrossfade(); // ya no habrá "siguiente": se descarta lo precargado
         if (this.isRepeat && this.active._songKey) {
             const song = findByKey(this.active._songKey);
             if (!(song && CATS[song.category].noStats)) {

@@ -284,7 +284,7 @@ const CRISTIANS = [
     { title: "Grande gozo gospel 1945 himno antiguo", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Grande%20gozo%20gospel%201945%20himno%20antiguo.mp3" },
     { title: "Has aumentado danilo montero", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Has%20aumentado%20danilo%20montero.mp3" },
     { title: "Hay poder gospel 1945 himno antiguo", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Hay%20poder%20gospel%201945%20himno%20antiguo.mp3" },
-    { title: "Hay un canto nuevo en mi ser himno 363 nuevo himnario adventista ¶", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Hay%20un%20canto%20nuevo%20en%20mi%20ser%20himno%20363%20nuevo%20himnario%20adventista%20%B6.mp3" },
+    { title: "Hay un canto nuevo en mi ser himno 363 nuevo himnario adventista ¶", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Hay%20un%20canto%20nuevo%20en%20mi%20ser%20himno%20363%20nuevo%20himnario%20adventista%20%C2%B6.mp3" },
     { title: "Himno 230 grande es tu fidelidad", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Himno%20230%20grande%20es%20tu%20fidelidad.mp3" },
     { title: "Himno adventista 097 en el monte calvario", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Himno%20adventista%20097%20en%20el%20monte%20calvario.mp3" },
     { title: "Himno sublime gracia", url: "https://raw.githubusercontent.com/bryan7896/musica4/main/Himno%20sublime%20gracia.mp3" },

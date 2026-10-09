@@ -1,5 +1,5 @@
 // ============================================
-// SERVICE WORKER - CACHE DE RECURSOS (v6)
+// SERVICE WORKER - CACHE DE RECURSOS (v20)
 // La app transmite las canciones directo (streaming) y solo
 // guarda offline las del TOP inteligente o las descargadas
 // manualmente, vía IndexedDB. Este SW ya NO intercepta .mp3:
@@ -7,7 +7,7 @@
 // requests) para buffer progresivo y saltos en la barra.
 // ============================================
 
-const CACHE_NAME = 'music-player-shell-v19';
+const CACHE_NAME = 'music-player-shell-v20';
 const OFFLINE_URL = 'index.html';
 
 const STATIC_ASSETS = [
